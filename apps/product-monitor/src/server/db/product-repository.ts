@@ -67,6 +67,7 @@ const jobFromRow = (row: JobRow): ExcelSyncJob => ({
 });
 
 export interface ProductRepository {
+    runInTransaction<T>(operation: () => T): T;
     createProduct(input: NewProductRecord): ProductRecord;
     completeActiveProduct(completedAt: number): ProductRecord | null;
     getActiveProduct(): ProductRecord | null;
@@ -93,6 +94,10 @@ export class SqliteProductRepository implements ProductRepository {
     public constructor(database: Database.Database) {
         this.database = database;
         migrate(database);
+    }
+
+    runInTransaction<T>(operation: () => T): T {
+        return this.database.transaction(operation)();
     }
 
     createProduct(input: NewProductRecord): ProductRecord {
