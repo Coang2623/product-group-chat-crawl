@@ -341,15 +341,13 @@ export async function loginQR(ctx, options, callback) {
             else {
                 return reject(new ZaloApiError(`An error has occurred.\nResponse: ${JSON.stringify(confirmResult, null, 2)}`));
             }
-            const userInfo = await getUserInfo(ctx);
-            if (!userInfo || !userInfo.data)
-                return reject(new ZaloApiError("Can't get account info"));
-            if (!userInfo.data.logged)
-                return reject(new ZaloApiError("Can't login"));
             clearTimeout(timeout);
             resolve({
                 cookies: ctx.cookie.toJSON().cookies,
-                userInfo: userInfo.data.info,
+                userInfo: {
+                    name: scanResult.data.display_name,
+                    avatar: scanResult.data.avatar,
+                },
             });
         }
         catch (error) {

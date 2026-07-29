@@ -332,41 +332,6 @@ async function checkSession(ctx: ContextBase) {
     ).catch(logger(ctx).error);
 }
 
-async function getUserInfo(ctx: ContextBase): Promise<
-    | {
-          data: {
-              logged: boolean;
-              session_chat_valid: boolean;
-              info: {
-                  name: string;
-                  avatar: string;
-              };
-          } | null;
-          error_code: number;
-          error_message: string;
-      }
-    | undefined
-> {
-    return await request(ctx, "https://jr.chat.zalo.me/jr/userinfo", {
-        headers: {
-            accept: "*/*",
-            "accept-language": "vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5",
-            priority: "u=1, i",
-            "sec-ch-ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-site",
-            Referer: "https://chat.zalo.me/",
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-        },
-        method: "GET",
-    })
-        .then((res) => res.json())
-        .catch(logger(ctx).error);
-}
-
 export async function loginQR(
     ctx: ContextBase,
     options: { userAgent: string; qrPath?: string },
@@ -504,14 +469,13 @@ export async function loginQR(
                 );
             }
 
-            const userInfo = await getUserInfo(ctx);
-            if (!userInfo || !userInfo.data) return reject(new ZaloApiError("Can't get account info"));
-            if (!userInfo.data.logged) return reject(new ZaloApiError("Can't login"));
-
             clearTimeout(timeout);
             resolve({
                 cookies: ctx.cookie!.toJSON()!.cookies,
-                userInfo: userInfo.data.info,
+                userInfo: {
+                    name: scanResult.data.display_name,
+                    avatar: scanResult.data.avatar,
+                },
             });
         } catch (error) {
             reject(error);

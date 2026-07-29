@@ -116,8 +116,6 @@ export class ZaloAdapter implements ZaloProductAdapter {
             } else if (event.type === QR_EVENT.loginInfo) {
                 const credentials = event.data as ZaloCredentials;
                 await this.persistCredentials(credentials);
-                this.state = "connected";
-                onQr({ state: this.state });
             }
             });
             return callbackChain;
@@ -125,6 +123,7 @@ export class ZaloAdapter implements ZaloProductAdapter {
         this.api = await login;
         await callbackChain;
         this.state = "connected";
+        onQr({ state: this.state });
     }
 
     async restoreSession(): Promise<boolean> {
