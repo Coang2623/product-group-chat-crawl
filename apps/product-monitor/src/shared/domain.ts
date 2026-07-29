@@ -78,3 +78,16 @@ export type NormalizedImageEvent = {
     imageUrl: string;
     sentAt: number;
 };
+
+export type NewProductRecord = ProductRecord;
+export type NewProductMedia = ProductMedia;
+
+export type ProductFilter = {
+    groupId?: string;
+    status?: ProductStatus;
+    fromPostedAt?: number;
+    toPostedAt?: number;
+    limit?: number;
+};
+
+export type HeartStateInput = ProductReaction;
