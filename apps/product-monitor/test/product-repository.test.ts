@@ -78,15 +78,17 @@ describe("SqliteProductRepository", () => {
         expect(repo.updateProductMediaSummary(product.id)).toMatchObject({ imageCount: 2, coverImagePath: "first.jpg" });
     });
 
-    it("deduplicates heart state per reacting user and records sync job outcomes", () => {
+    it("counts only active canonical hearts per user and records sync job outcomes", () => {
         const repo = createRepository();
         const product = repo.createProduct(fixtureProduct());
-        repo.setHeartState({ productId: product.id, targetMessageId: "image-1", userId: "user-1", icon: "heart", active: true, updatedAt: 1 });
-        repo.setHeartState({ productId: product.id, targetMessageId: "image-2", userId: "user-1", icon: "heart", active: true, updatedAt: 2 });
-        repo.setHeartState({ productId: product.id, targetMessageId: "image-1", userId: "user-2", icon: "heart", active: true, updatedAt: 3 });
-        repo.setHeartState({ productId: product.id, targetMessageId: "image-2", userId: "user-1", icon: "heart", active: false, updatedAt: 4 });
+        repo.setHeartState({ productId: product.id, targetMessageId: "image-1", userId: "user-1", icon: "/-heart", active: true, updatedAt: 1 });
+        repo.setHeartState({ productId: product.id, targetMessageId: "image-2", userId: "user-1", icon: "/-heart", active: true, updatedAt: 2 });
+        repo.setHeartState({ productId: product.id, targetMessageId: "image-1", userId: "user-2", icon: "/-heart", active: true, updatedAt: 3 });
+        repo.setHeartState({ productId: product.id, targetMessageId: "image-3", userId: "user-3", icon: "/-like", active: true, updatedAt: 4 });
 
         expect(repo.countUniqueHearts(product.id)).toBe(2);
+        repo.setHeartState({ productId: product.id, targetMessageId: "image-1", userId: "user-2", icon: "/-like", active: true, updatedAt: 5 });
+        expect(repo.countUniqueHearts(product.id)).toBe(1);
         expect(repo.updateHeartCount(product.id, 2).heartCount).toBe(2);
         repo.enqueueExcelSync(product.id);
         repo.markExcelJob(product.id, "failed", "network");

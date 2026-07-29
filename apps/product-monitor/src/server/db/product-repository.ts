@@ -221,7 +221,7 @@ export class SqliteProductRepository implements ProductRepository {
     }
 
     countUniqueHearts(productId: string): number {
-        const row = this.database.prepare("SELECT COUNT(DISTINCT user_id) AS count FROM product_reactions WHERE product_id = ? AND active = 1").get(productId) as { count: number };
+        const row = this.database.prepare("SELECT COUNT(DISTINCT user_id) AS count FROM product_reactions WHERE product_id = ? AND active = 1 AND icon = '/-heart'").get(productId) as { count: number };
         return row.count;
     }
 
