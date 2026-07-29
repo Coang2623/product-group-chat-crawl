@@ -174,6 +174,9 @@ class Zalo {
         ctx.cookie = this.parseCookies(credentials.cookie);
         ctx.userAgent = credentials.userAgent;
         ctx.language = credentials.language || "vi";
+        return this.completeLogin(ctx);
+    }
+    async completeLogin(ctx) {
         const loginData = await login.login(ctx, this.enableEncryptParam);
         const serverInfo = await login.getServerInfo(ctx, this.enableEncryptParam);
         const loginInfo = loginData === null || loginData === void 0 ? void 0 : loginData.data;
@@ -224,12 +227,9 @@ class Zalo {
                 actions: null,
             });
         }
-        return this.loginCookie(ctx, {
-            cookie: loginQRResult.cookies,
-            imei,
-            userAgent: options.userAgent,
-            language: options.language,
-        });
+        ctx.imei = imei;
+        ctx.language = options.language;
+        return this.completeLogin(ctx);
     }
 }
 class API {

@@ -212,6 +212,10 @@ export class Zalo {
         ctx.userAgent = credentials.userAgent;
         ctx.language = credentials.language || "vi";
 
+        return this.completeLogin(ctx);
+    }
+
+    private async completeLogin(ctx: ContextBase) {
         const loginData = await login(ctx, this.enableEncryptParam);
         const serverInfo = await getServerInfo(ctx, this.enableEncryptParam);
 
@@ -281,12 +285,9 @@ export class Zalo {
             });
         }
 
-        return this.loginCookie(ctx, {
-            cookie: loginQRResult.cookies,
-            imei,
-            userAgent: options.userAgent,
-            language: options.language,
-        });
+        ctx.imei = imei;
+        ctx.language = options.language;
+        return this.completeLogin(ctx);
     }
 }
 
