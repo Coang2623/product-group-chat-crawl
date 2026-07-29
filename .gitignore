@@ -140,6 +140,7 @@ bun.lockb
 cookies.json
 credentials.json
 /.dev
+.worktrees/
 test/**/*.test.*
 
 # Project specific - files không cần cho end users
