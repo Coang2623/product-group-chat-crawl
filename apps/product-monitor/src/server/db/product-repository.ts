@@ -50,6 +50,7 @@ const mediaFromRow = (row: MediaRow): ProductMedia => ({
     id: String(row.id),
     productId: String(row.product_id),
     sourceMessageId: String(row.source_message_id),
+    sourceUrl: optionalString(row.source_url),
     sequence: Number(row.sequence),
     localPath: optionalString(row.local_path),
     checksum: optionalString(row.checksum),
@@ -180,15 +181,15 @@ export class SqliteProductRepository implements ProductRepository {
 
     addMedia(input: NewProductMedia): ProductMedia {
         this.database.prepare(`
-            INSERT INTO product_media (id, product_id, source_message_id, sequence, local_path, checksum, download_status, created_at)
-            VALUES (@id, @productId, @sourceMessageId, @sequence, @localPath, @checksum, @downloadStatus, @createdAt)
-        `).run({ ...input, localPath: input.localPath ?? null, checksum: input.checksum ?? null });
+            INSERT INTO product_media (id, product_id, source_message_id, source_url, sequence, local_path, checksum, download_status, created_at)
+            VALUES (@id, @productId, @sourceMessageId, @sourceUrl, @sequence, @localPath, @checksum, @downloadStatus, @createdAt)
+        `).run({ ...input, sourceUrl: input.sourceUrl ?? null, localPath: input.localPath ?? null, checksum: input.checksum ?? null });
         return this.requireMedia(input.id);
     }
 
     updateMedia(id: string, patch: Partial<ProductMedia>): ProductMedia {
-        const editable: Array<keyof ProductMedia> = ["sequence", "localPath", "checksum", "downloadStatus"];
-        const columns: Record<string, string> = { sequence: "sequence", localPath: "local_path", checksum: "checksum", downloadStatus: "download_status" };
+        const editable: Array<keyof ProductMedia> = ["sourceUrl", "sequence", "localPath", "checksum", "downloadStatus"];
+        const columns: Record<string, string> = { sourceUrl: "source_url", sequence: "sequence", localPath: "local_path", checksum: "checksum", downloadStatus: "download_status" };
         const fields = editable.filter((key) => patch[key] !== undefined);
         if (fields.length) {
             const assignments = fields.map((key) => `${columns[key]} = @${key}`).join(", ");

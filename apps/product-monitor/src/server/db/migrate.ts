@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS product_media (
   id TEXT PRIMARY KEY,
   product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   source_message_id TEXT NOT NULL UNIQUE,
+  source_url TEXT,
   sequence INTEGER NOT NULL,
   local_path TEXT,
   checksum TEXT,
@@ -69,5 +70,11 @@ CREATE TABLE IF NOT EXISTS excel_sync_jobs (
 /** Enables SQLite guarantees and creates the durable product-monitor schema. */
 export const migrate = (database: Database.Database): void => {
     database.pragma("foreign_keys = ON");
-    database.transaction(() => database.exec(schema))();
+    database.transaction(() => {
+        database.exec(schema);
+        const mediaColumns = database.prepare("PRAGMA table_info(product_media)").all() as Array<{ name: string }>;
+        if (!mediaColumns.some((column) => column.name === "source_url")) {
+            database.exec("ALTER TABLE product_media ADD COLUMN source_url TEXT");
+        }
+    })();
 };

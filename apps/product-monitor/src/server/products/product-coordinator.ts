@@ -64,6 +64,7 @@ export class ProductCoordinator {
                 id: deterministicId("media", event.messageId),
                 productId: active.id,
                 sourceMessageId: event.messageId,
+                sourceUrl: event.imageUrl,
                 sequence: this.repository.listMedia(active.id).length + 1,
                 downloadStatus: "pending",
                 createdAt: event.sentAt,

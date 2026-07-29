@@ -36,10 +36,12 @@ export type ProductMedia = {
     id: string;
     productId: string;
     sourceMessageId: string;
+    /** Durable origin required to safely retry a failed download. */
+    sourceUrl?: string;
     sequence: number;
     localPath?: string;
     checksum?: string;
-    downloadStatus: "pending" | "downloaded" | "failed";
+    downloadStatus: "pending" | "downloaded" | "failed" | "duplicate";
     createdAt: number;
 };
 
