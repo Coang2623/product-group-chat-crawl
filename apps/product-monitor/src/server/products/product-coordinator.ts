@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type {
     NewProductRecord,
     NormalizedDescriptionEvent,
@@ -28,17 +29,24 @@ export class ProductCoordinator {
         const existing = this.repository.getProductByMessageId(event.messageId);
         if (existing) return existing;
 
-        return this.repository.runInTransaction(() => {
-            const completed = this.repository.completeActiveProduct(event.sentAt);
-            if (completed) this.repository.enqueueExcelSync(completed.id);
+        try {
+            return this.repository.runInTransaction(() => {
+                const completed = this.repository.completeActiveProduct(event.sentAt);
+                if (completed) this.repository.enqueueExcelSync(completed.id);
 
-            const parsed = parseLaptopPost(event.content);
-            const product = this.repository.createProduct(
-                mapDescriptionToNewProduct(event, parsed, this.options.mediaRoot),
-            );
-            this.repository.enqueueExcelSync(product.id);
-            return product;
-        });
+                const parsed = parseLaptopPost(event.content);
+                const product = this.repository.createProduct(
+                    mapDescriptionToNewProduct(event, parsed, this.options.mediaRoot),
+                );
+                this.repository.enqueueExcelSync(product.id);
+                return product;
+            });
+        } catch (error) {
+            if (!isDescriptionMessageConflict(error)) throw error;
+            const winner = this.repository.getProductByMessageId(event.messageId);
+            if (!winner) throw error;
+            return winner;
+        }
     }
 
     handleImage(event: NormalizedImageEvent): ProductMedia | "orphan" {
@@ -53,7 +61,7 @@ export class ProductCoordinator {
             }
 
             const media = this.repository.addMedia({
-                id: `media-${event.messageId}`,
+                id: deterministicId("media", event.messageId),
                 productId: active.id,
                 sourceMessageId: event.messageId,
                 sequence: this.repository.listMedia(active.id).length + 1,
@@ -91,7 +99,7 @@ const mapDescriptionToNewProduct = (
     parsed: LaptopParseResult,
     mediaRoot: string,
 ): NewProductRecord => {
-    const id = `product-${event.messageId}`;
+    const id = deterministicId("product", event.messageId);
     const parsedFields = parsed.ok ? parsed.fields : {};
 
     return {
@@ -106,7 +114,7 @@ const mapDescriptionToNewProduct = (
         ...parsedFields,
         notes: parsed.ok ? parsed.fields.notes : event.content,
         imageCount: 0,
-        mediaDirectory: join(mediaRoot, new Date(event.sentAt).toISOString().slice(0, 7), id),
+        mediaDirectory: productMediaDirectory(mediaRoot, event.sentAt, id),
         heartCount: 0,
         status: parsed.ok ? "receiving_images" : "needs_review",
         excelSyncStatus: "pending",
@@ -114,3 +122,42 @@ const mapDescriptionToNewProduct = (
         updatedAt: event.sentAt,
     };
 };
+
+const BANGKOK_MONTH_FORMATTER = new Intl.DateTimeFormat("en-US-u-nu-latn", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+});
+
+const productMediaDirectory = (mediaRoot: string, sentAt: number, productId: string): string => {
+    const parts = BANGKOK_MONTH_FORMATTER.formatToParts(new Date(sentAt));
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    if (!year || !month) throw new Error("Could not derive Asia/Bangkok product month");
+
+    const monthDirectory = resolveDescendant(mediaRoot, `${year}-${month}`);
+    return resolveDescendant(monthDirectory, productId);
+};
+
+const resolveDescendant = (root: string, child: string): string => {
+    const resolvedRoot = resolve(root);
+    const candidate = resolve(resolvedRoot, child);
+    const pathFromRoot = relative(resolvedRoot, candidate);
+    if (
+        pathFromRoot === "" ||
+        pathFromRoot === ".." ||
+        pathFromRoot.startsWith(`..${sep}`) ||
+        isAbsolute(pathFromRoot)
+    ) {
+        throw new Error(`Resolved path escapes its root: ${candidate}`);
+    }
+    return candidate;
+};
+
+const deterministicId = (prefix: "product" | "media", messageId: string): string =>
+    `${prefix}-${createHash("sha256").update(messageId, "utf8").digest("hex")}`;
+
+const isDescriptionMessageConflict = (error: unknown): boolean =>
+    error instanceof Error &&
+    (error as Error & { code?: unknown }).code === "SQLITE_CONSTRAINT_UNIQUE" &&
+    error.message === "UNIQUE constraint failed: products.description_message_id";

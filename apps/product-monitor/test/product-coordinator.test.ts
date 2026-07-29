@@ -1,13 +1,17 @@
-import { join } from "node:path";
-import type Database from "better-sqlite3";
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteProductRepository } from "../src/server/db/product-repository.js";
 import { ProductCoordinator } from "../src/server/products/product-coordinator.js";
 import type { NormalizedImageEvent } from "../src/shared/domain.js";
-import { createTestDatabase, descriptionEvent } from "./helpers.js";
+import { createTestDatabase, descriptionEvent, fixtureProduct } from "./helpers.js";
 
 describe("ProductCoordinator", () => {
     const databases: Database.Database[] = [];
+    const temporaryDirectories: string[] = [];
     const mediaRoot = join("data", "media");
     let repo: SqliteProductRepository;
     let coordinator: ProductCoordinator;
@@ -23,7 +27,10 @@ describe("ProductCoordinator", () => {
         });
     });
 
-    afterEach(() => databases.splice(0).forEach((database) => database.close()));
+    afterEach(() => {
+        databases.splice(0).forEach((database) => database.close());
+        temporaryDirectories.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true }));
+    });
 
     it("completes the previous draft before creating the next", () => {
         coordinator.handleDescription(descriptionEvent({ messageId: "m1", sentAt: 100 }));
@@ -64,6 +71,58 @@ describe("ProductCoordinator", () => {
         expect(repo.listPendingExcelJobs()).toEqual([]);
     });
 
+    it("returns the winning replay after a unique conflict and rolls back the losing lifecycle", () => {
+        const directory = mkdtempSync(join(tmpdir(), "product-coordinator-race-"));
+        temporaryDirectories.push(directory);
+        const databasePath = join(directory, "products.sqlite");
+        const loserDatabase = new Database(databasePath);
+        const winnerDatabase = new Database(databasePath);
+        databases.push(loserDatabase, winnerDatabase);
+        const loserRepo = new SqliteProductRepository(loserDatabase);
+        const winnerRepo = new SqliteProductRepository(winnerDatabase);
+        const raceCoordinator = new ProductCoordinator(loserRepo, {
+            activeGroupId: "group-1",
+            publisherId: "admin-1",
+            mediaRoot,
+        });
+        const active = raceCoordinator.handleDescription(descriptionEvent({ messageId: "active", sentAt: 100 }));
+        loserRepo.markExcelJob(active.id, "running");
+        const rawMessageId = "../same-message";
+        const winnerId = `product-${createHash("sha256").update(rawMessageId, "utf8").digest("hex")}`;
+        const winner = fixtureProduct({
+            id: winnerId,
+            descriptionMessageId: rawMessageId,
+            rawContent: "máy đẹp inbox",
+            notes: "máy đẹp inbox",
+            productName: undefined,
+            status: "needs_review",
+            mediaDirectory: resolve(mediaRoot, "2026-07", winnerId),
+            createdAt: 150,
+            updatedAt: 150,
+        });
+        const runInTransaction = loserRepo.runInTransaction.bind(loserRepo);
+        let injectWinner = true;
+        loserRepo.runInTransaction = (operation) => {
+            if (injectWinner) {
+                injectWinner = false;
+                winnerRepo.createProduct(winner);
+            }
+            return runInTransaction(operation);
+        };
+
+        const replay = raceCoordinator.handleDescription(descriptionEvent({
+            messageId: rawMessageId,
+            content: "máy đẹp inbox",
+            sentAt: 200,
+        }));
+
+        expect(replay).toEqual(winnerRepo.getProduct(winner.id));
+        expect(loserRepo.getProduct(active.id)).toMatchObject({ status: "receiving_images", updatedAt: 100 });
+        expect(loserRepo.getActiveProduct()?.id).toBe(active.id);
+        expect(loserRepo.listProducts()).toHaveLength(2);
+        expect(loserRepo.listPendingExcelJobs()).toEqual([]);
+    });
+
     it("rolls back completion and Excel enqueue when creating the replacement fails", () => {
         const active = coordinator.handleDescription(descriptionEvent({ messageId: "active", sentAt: 100 }));
         repo.markExcelJob(active.id, "running");
@@ -80,6 +139,44 @@ describe("ProductCoordinator", () => {
 
         expect(repo.getProduct(active.id)).toMatchObject({ status: "receiving_images", updatedAt: 100 });
         expect(repo.getActiveProduct()?.id).toBe(active.id);
+        expect(repo.listPendingExcelJobs()).toEqual([]);
+    });
+
+    it("does not swallow a different SQLite unique constraint", () => {
+        const active = coordinator.handleDescription(descriptionEvent({ messageId: "active", sentAt: 100 }));
+        repo.markExcelJob(active.id, "running");
+        const error = Object.assign(new Error("UNIQUE constraint failed: products.id"), {
+            code: "SQLITE_CONSTRAINT_UNIQUE",
+        });
+        repo.createProduct = () => {
+            throw error;
+        };
+
+        expect(() => coordinator.handleDescription(descriptionEvent({
+            messageId: "different-constraint",
+            sentAt: 200,
+        }))).toThrow(error);
+
+        expect(repo.getProduct(active.id)).toMatchObject({ status: "receiving_images", updatedAt: 100 });
+        expect(repo.listPendingExcelJobs()).toEqual([]);
+    });
+
+    it("rolls back the full description lifecycle when enqueueing the new product fails", () => {
+        const active = coordinator.handleDescription(descriptionEvent({ messageId: "active", sentAt: 100 }));
+        repo.markExcelJob(active.id, "running");
+        const enqueueExcelSync = repo.enqueueExcelSync.bind(repo);
+        repo.enqueueExcelSync = (productId) => {
+            if (productId !== active.id) throw new Error("injected enqueue failure");
+            enqueueExcelSync(productId);
+        };
+
+        expect(() => coordinator.handleDescription(descriptionEvent({
+            messageId: "replacement",
+            sentAt: 200,
+        }))).toThrow("injected enqueue failure");
+
+        expect(repo.getProduct(active.id)).toMatchObject({ status: "receiving_images", updatedAt: 100 });
+        expect(repo.getProductByMessageId("replacement")).toBeNull();
         expect(repo.listPendingExcelJobs()).toEqual([]);
     });
 
@@ -104,9 +201,45 @@ describe("ProductCoordinator", () => {
         expect(product.ram).toBeUndefined();
         expect(product.storage).toBeUndefined();
         expect(product.price).toBeUndefined();
-        expect(product.mediaDirectory).toBe(join(mediaRoot, "2026-07", product.id));
+        expect(product.mediaDirectory).toBe(resolve(mediaRoot, "2026-07", product.id));
         expect(repo.getActiveProduct()).toBeNull();
         expect(repo.listPendingExcelJobs().map((job) => job.productId)).toContain(product.id);
+    });
+
+    it("derives fixed filesystem-safe product IDs and contained media paths from adversarial message IDs", () => {
+        const messageIds = [
+            "../escape",
+            "..\\escape",
+            ": * ?",
+            `${"Sản-phẩm-非常に長い-".repeat(40)}🌏`,
+        ];
+        const monthRoot = resolve(mediaRoot, "2026-07");
+
+        messageIds.forEach((messageId, index) => {
+            const product = coordinator.handleDescription(descriptionEvent({
+                messageId,
+                sentAt: Date.parse(`2026-07-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`),
+            }));
+            const relativePath = relative(monthRoot, product.mediaDirectory);
+
+            expect(product.id).toMatch(/^product-[a-f0-9]{64}$/);
+            expect(product.descriptionMessageId).toBe(messageId);
+            expect(product.id).not.toContain(messageId);
+            expect(isAbsolute(product.mediaDirectory)).toBe(true);
+            expect(basename(product.mediaDirectory)).toBe(product.id);
+            expect(relativePath).toBe(product.id);
+            expect(relativePath).not.toBe("..");
+            expect(relativePath.startsWith(`..${sep}`)).toBe(false);
+        });
+    });
+
+    it("uses the Asia/Bangkok calendar month for media paths at a UTC month boundary", () => {
+        const product = coordinator.handleDescription(descriptionEvent({
+            messageId: "bangkok-boundary",
+            sentAt: Date.parse("2026-07-31T18:00:00.000Z"),
+        }));
+
+        expect(product.mediaDirectory).toBe(resolve(mediaRoot, "2026-08", product.id));
     });
 
     it.each([
@@ -144,7 +277,40 @@ describe("ProductCoordinator", () => {
         expect(repo.listPendingExcelJobs().map((job) => job.productId)).toEqual([product.id]);
     });
 
+    it("derives fixed filesystem-safe media IDs while retaining raw source message IDs", () => {
+        const product = coordinator.handleDescription(descriptionEvent({ messageId: "description", sentAt: 100 }));
+        const messageIds = [
+            "../escape.jpg",
+            "..\\escape.jpg",
+            ": * ?.jpg",
+            `${"Ảnh-非常に長い-".repeat(40)}🌏`,
+        ];
+
+        messageIds.forEach((messageId, index) => {
+            const media = coordinator.handleImage(imageEvent({ messageId, sentAt: 200 + index }));
+            if (media === "orphan") throw new Error("Expected media to attach");
+
+            expect(media.id).toMatch(/^media-[a-f0-9]{64}$/);
+            expect(media.id).not.toContain(messageId);
+            expect(media.sourceMessageId).toBe(messageId);
+        });
+        expect(repo.listMedia(product.id)).toHaveLength(messageIds.length);
+    });
+
     it("returns orphan for an authorized image when there is no receiving product", () => {
+        expect(coordinator.handleImage(imageEvent())).toBe("orphan");
+    });
+
+    it("returns orphan for images after an unparseable description creates needs_review", () => {
+        coordinator.handleDescription(descriptionEvent({ content: "máy đẹp inbox" }));
+
+        expect(coordinator.handleImage(imageEvent())).toBe("orphan");
+    });
+
+    it("returns orphan for images after the receiving product is completed", () => {
+        coordinator.handleDescription(descriptionEvent());
+        coordinator.completeActive(500);
+
         expect(coordinator.handleImage(imageEvent())).toBe("orphan");
     });
 
