@@ -74,6 +74,7 @@ export interface ProductRepository {
     getActiveProduct(): ProductRecord | null;
     getProduct(id: string): ProductRecord | null;
     getProductByMessageId(messageId: string): ProductRecord | null;
+    getProductByTargetMessageId(messageId: string): ProductRecord | null;
     listProducts(filter?: ProductFilter): ProductRecord[];
     addMedia(input: NewProductMedia): ProductMedia;
     getMedia(id: string): ProductMedia | null;
@@ -82,7 +83,7 @@ export interface ProductRepository {
     /** Durable media-download queue; scheduling is owned by the retry worker. */
     listRetryableMedia(): ProductMedia[];
     updateProductMediaSummary(productId: string): ProductRecord;
-    setHeartState(input: HeartStateInput): void;
+    setHeartState(input: HeartStateInput): boolean;
     countUniqueHearts(productId: string): number;
     updateHeartCount(productId: string, heartCount: number): ProductRecord;
     enqueueExcelSync(productId: string): void;
@@ -156,6 +157,17 @@ export class SqliteProductRepository implements ProductRepository {
         return this.productOrNull(this.database.prepare("SELECT * FROM products WHERE description_message_id = ?").get(messageId));
     }
 
+    getProductByTargetMessageId(messageId: string): ProductRecord | null {
+        return this.productOrNull(this.database.prepare(`
+            SELECT * FROM products WHERE description_message_id = @messageId
+            UNION ALL
+            SELECT products.* FROM products
+            INNER JOIN product_media ON product_media.product_id = products.id
+            WHERE product_media.source_message_id = @messageId
+            LIMIT 1
+        `).get({ messageId }));
+    }
+
     listProducts(filter: ProductFilter = {}): ProductRecord[] {
         const clauses: string[] = [];
         const params: Record<string, unknown> = {};
@@ -224,8 +236,13 @@ export class SqliteProductRepository implements ProductRepository {
         return this.database.transaction(() => {
             const summary = this.database.prepare(`
                 SELECT COUNT(*) AS image_count,
-                       (SELECT local_path FROM product_media WHERE product_id = @productId AND local_path IS NOT NULL ORDER BY sequence ASC, id ASC LIMIT 1) AS cover_image_path
-                FROM product_media WHERE product_id = @productId
+                       (SELECT local_path FROM product_media
+                        WHERE product_id = @productId
+                          AND download_status = 'downloaded'
+                          AND local_path IS NOT NULL
+                        ORDER BY sequence ASC, id ASC LIMIT 1) AS cover_image_path
+                FROM product_media
+                WHERE product_id = @productId AND download_status = 'downloaded'
             `).get({ productId }) as { image_count: number; cover_image_path: string | null };
             this.database.prepare("UPDATE products SET image_count = ?, cover_image_path = ?, updated_at = ? WHERE id = ?")
                 .run(summary.image_count, summary.cover_image_path, Date.now(), productId);
@@ -233,13 +250,15 @@ export class SqliteProductRepository implements ProductRepository {
         })();
     }
 
-    setHeartState(input: HeartStateInput): void {
-        this.database.prepare(`
+    setHeartState(input: HeartStateInput): boolean {
+        const result = this.database.prepare(`
             INSERT INTO product_reactions (product_id, target_message_id, user_id, icon, active, updated_at)
             VALUES (@productId, @targetMessageId, @userId, @icon, @active, @updatedAt)
             ON CONFLICT(product_id, target_message_id, user_id) DO UPDATE SET
                 icon = excluded.icon, active = excluded.active, updated_at = excluded.updated_at
+            WHERE excluded.updated_at > product_reactions.updated_at
         `).run({ ...input, active: Number(input.active) });
+        return result.changes > 0;
     }
 
     countUniqueHearts(productId: string): number {

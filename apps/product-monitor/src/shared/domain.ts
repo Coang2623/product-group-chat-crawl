@@ -81,6 +81,16 @@ export type NormalizedImageEvent = {
     sentAt: number;
 };
 
+export type NormalizedReactionEvent = {
+    groupId: string;
+    targetMessageIds: string[];
+    userId: string;
+    icon: string;
+    active: boolean;
+    occurredAt: number;
+    rType?: number;
+};
+
 export type NewProductRecord = ProductRecord;
 export type NewProductMedia = ProductMedia;
 

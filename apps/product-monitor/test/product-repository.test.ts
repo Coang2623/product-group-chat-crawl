@@ -79,6 +79,19 @@ describe("SqliteProductRepository", () => {
         expect(repo.updateProductMediaSummary(product.id)).toMatchObject({ imageCount: 2, coverImagePath: "first.jpg" });
     });
 
+    it("excludes failed and duplicate downloads from the image summary", () => {
+        const repo = createRepository();
+        const product = repo.createProduct(fixtureProduct());
+        repo.addMedia({ id: "downloaded", productId: product.id, sourceMessageId: "image-1", sequence: 1, localPath: "first.jpg", checksum: "a", downloadStatus: "downloaded", createdAt: 10 });
+        repo.addMedia({ id: "failed", productId: product.id, sourceMessageId: "image-2", sequence: 2, downloadStatus: "failed", createdAt: 11 });
+        repo.addMedia({ id: "duplicate", productId: product.id, sourceMessageId: "image-3", sequence: 3, checksum: "a", downloadStatus: "duplicate", createdAt: 12 });
+
+        expect(repo.updateProductMediaSummary(product.id)).toMatchObject({
+            imageCount: 1,
+            coverImagePath: "first.jpg",
+        });
+    });
+
     it("keeps durable retry rows and enforces per-product media sequence and downloaded checksum invariants", () => {
         const repo = createRepository();
         const product = repo.createProduct(fixtureProduct());
