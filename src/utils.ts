@@ -325,11 +325,15 @@ const resolveCookieOrigin = (cookie: toughCookie.Cookie, responseOrigin: string)
     if (!cookieDomain) return responseOrigin;
     const responseHost = new URL(responseOrigin).hostname.toLowerCase();
     if (responseHost === cookieDomain || responseHost.endsWith(`.${cookieDomain}`)) return responseOrigin;
-    if (cookieDomain === "zalo.me" || cookieDomain.endsWith(".zalo.me")) {
+    if (isZaloCookieDomain(cookieDomain)) {
         return `https://${cookieDomain}`;
     }
     return responseOrigin;
 };
+
+const isZaloCookieDomain = (domain: string): boolean =>
+    ["zalo.me", "zaloapp.com", "zalo.cx", "zalo.gg"]
+        .some((root) => domain === root || domain.endsWith(`.${root}`));
 
 export async function getImageMetaData(filePath: string) {
     const fileData = await fs.promises.readFile(filePath);

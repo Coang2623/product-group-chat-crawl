@@ -168,21 +168,16 @@ export class Zalo {
 
     private parseCookies(cookie: Credentials["cookie"]): toughCookie.CookieJar {
         const cookieArr = Array.isArray(cookie) ? cookie : cookie.cookies;
-
-        cookieArr.forEach((e, i) => {
-            if (typeof e.domain == "string" && e.domain.startsWith(".")) cookieArr[i].domain = e.domain.slice(1);
-        });
-
         const jar = new toughCookie.CookieJar();
         for (const each of cookieArr) {
             try {
-                jar.setCookieSync(
-                    toughCookie.Cookie.fromJSON({
-                        ...each,
-                        key: (each as toughCookie.SerializedCookie).key || each.name,
-                    }) ?? "",
-                    "https://chat.zalo.me",
-                );
+                const domain = each.domain.replace(/^\./u, "").toLowerCase();
+                const parsed = toughCookie.Cookie.fromJSON({
+                    ...each,
+                    domain,
+                    key: (each as toughCookie.SerializedCookie).key || each.name,
+                });
+                if (parsed) jar.setCookieSync(parsed, `https://${domain}`);
             } catch (error: unknown) {
                 logger({
                     options: {
@@ -222,7 +217,18 @@ export class Zalo {
 
         const loginInfo = loginData?.data as typeof ctx.loginInfo;
 
-        if (!loginData || !loginInfo || !serverInfo) throw new ZaloApiError("Đăng nhập thất bại");
+        if (!loginData || !loginInfo || !serverInfo) {
+            const loginMeta = loginData && typeof loginData === "object"
+                ? {
+                    keys: Object.keys(loginData),
+                    errorCode: (loginData as Record<string, unknown>).error_code,
+                    errorMessage: (loginData as Record<string, unknown>).error_message,
+                }
+                : null;
+            throw new ZaloApiError(
+                `Đăng nhập thất bại (login=${JSON.stringify(loginMeta)}, serverInfo=${Boolean(serverInfo)})`,
+            );
+        }
 
         ctx.secretKey = loginInfo.zpw_enk;
         ctx.uid = loginInfo.uid;

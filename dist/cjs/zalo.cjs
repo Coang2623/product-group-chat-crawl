@@ -138,16 +138,14 @@ class Zalo {
         this.enableEncryptParam = true;
     }
     parseCookies(cookie) {
-        var _a;
         const cookieArr = Array.isArray(cookie) ? cookie : cookie.cookies;
-        cookieArr.forEach((e, i) => {
-            if (typeof e.domain == "string" && e.domain.startsWith("."))
-                cookieArr[i].domain = e.domain.slice(1);
-        });
         const jar = new toughCookie.CookieJar();
         for (const each of cookieArr) {
             try {
-                jar.setCookieSync((_a = toughCookie.Cookie.fromJSON(Object.assign(Object.assign({}, each), { key: each.key || each.name }))) !== null && _a !== void 0 ? _a : "", "https://chat.zalo.me");
+                const domain = each.domain.replace(/^\./u, "").toLowerCase();
+                const parsed = toughCookie.Cookie.fromJSON(Object.assign(Object.assign({}, each), { domain, key: each.key || each.name }));
+                if (parsed)
+                    jar.setCookieSync(parsed, `https://${domain}`);
             }
             catch (error) {
                 utils.logger({
@@ -179,8 +177,16 @@ class Zalo {
         const loginData = await login.login(ctx, this.enableEncryptParam);
         const serverInfo = await login.getServerInfo(ctx, this.enableEncryptParam);
         const loginInfo = loginData === null || loginData === void 0 ? void 0 : loginData.data;
-        if (!loginData || !loginInfo || !serverInfo)
-            throw new ZaloApiError.ZaloApiError("Đăng nhập thất bại");
+        if (!loginData || !loginInfo || !serverInfo) {
+            const loginMeta = loginData && typeof loginData === "object"
+                ? {
+                    keys: Object.keys(loginData),
+                    errorCode: loginData.error_code,
+                    errorMessage: loginData.error_message,
+                }
+                : null;
+            throw new ZaloApiError.ZaloApiError(`Đăng nhập thất bại (login=${JSON.stringify(loginMeta)}, serverInfo=${Boolean(serverInfo)})`);
+        }
         ctx.secretKey = loginInfo.zpw_enk;
         ctx.uid = loginInfo.uid;
         // Zalo currently responds with setttings instead of settings
