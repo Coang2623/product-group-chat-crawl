@@ -76,8 +76,11 @@ export interface ProductRepository {
     getProductByMessageId(messageId: string): ProductRecord | null;
     listProducts(filter?: ProductFilter): ProductRecord[];
     addMedia(input: NewProductMedia): ProductMedia;
+    getMedia(id: string): ProductMedia | null;
     updateMedia(id: string, patch: Partial<ProductMedia>): ProductMedia;
     listMedia(productId: string): ProductMedia[];
+    /** Durable media-download queue; scheduling is owned by the retry worker. */
+    listRetryableMedia(): ProductMedia[];
     updateProductMediaSummary(productId: string): ProductRecord;
     setHeartState(input: HeartStateInput): void;
     countUniqueHearts(productId: string): number;
@@ -187,6 +190,11 @@ export class SqliteProductRepository implements ProductRepository {
         return this.requireMedia(input.id);
     }
 
+    getMedia(id: string): ProductMedia | null {
+        const row = this.database.prepare("SELECT * FROM product_media WHERE id = ?").get(id);
+        return row ? mediaFromRow(row as MediaRow) : null;
+    }
+
     updateMedia(id: string, patch: Partial<ProductMedia>): ProductMedia {
         const editable: Array<keyof ProductMedia> = ["sourceUrl", "sequence", "localPath", "checksum", "downloadStatus"];
         const columns: Record<string, string> = { sourceUrl: "source_url", sequence: "sequence", localPath: "local_path", checksum: "checksum", downloadStatus: "download_status" };
@@ -202,6 +210,14 @@ export class SqliteProductRepository implements ProductRepository {
     listMedia(productId: string): ProductMedia[] {
         return this.database.prepare("SELECT * FROM product_media WHERE product_id = ? ORDER BY sequence ASC, id ASC").all(productId)
             .map((row) => mediaFromRow(row as MediaRow));
+    }
+
+    listRetryableMedia(): ProductMedia[] {
+        return this.database.prepare(`
+            SELECT * FROM product_media
+            WHERE download_status IN ('pending', 'failed')
+            ORDER BY product_id ASC, sequence ASC, id ASC
+        `).all().map((row) => mediaFromRow(row as MediaRow));
     }
 
     updateProductMediaSummary(productId: string): ProductRecord {
@@ -280,8 +296,8 @@ export class SqliteProductRepository implements ProductRepository {
     }
 
     private requireMedia(id: string): ProductMedia {
-        const row = this.database.prepare("SELECT * FROM product_media WHERE id = ?").get(id);
-        if (!row) throw new Error(`Product media not found: ${id}`);
-        return mediaFromRow(row as MediaRow);
+        const media = this.getMedia(id);
+        if (!media) throw new Error(`Product media not found: ${id}`);
+        return media;
     }
 }

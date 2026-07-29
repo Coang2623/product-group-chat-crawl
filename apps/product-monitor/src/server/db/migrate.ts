@@ -48,6 +48,11 @@ CREATE TABLE IF NOT EXISTS product_media (
   download_status TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS product_media_product_sequence_unique
+ON product_media(product_id, sequence);
+CREATE UNIQUE INDEX IF NOT EXISTS product_media_downloaded_checksum_unique
+ON product_media(product_id, checksum)
+WHERE download_status = 'downloaded' AND checksum IS NOT NULL;
 CREATE TABLE IF NOT EXISTS product_reactions (
   product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   target_message_id TEXT NOT NULL,

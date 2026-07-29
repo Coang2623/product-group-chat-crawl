@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type Database from "better-sqlite3";
+import { migrate } from "../src/server/db/migrate.js";
 import { SqliteProductRepository } from "../src/server/db/product-repository.js";
 import { createTestDatabase, fixtureProduct } from "./helpers.js";
 
@@ -76,6 +77,20 @@ describe("SqliteProductRepository", () => {
 
         expect(repo.listMedia(product.id).map((media) => media.id)).toEqual(["media-2", "media-1"]);
         expect(repo.updateProductMediaSummary(product.id)).toMatchObject({ imageCount: 2, coverImagePath: "first.jpg" });
+    });
+
+    it("keeps durable retry rows and enforces per-product media sequence and downloaded checksum invariants", () => {
+        const repo = createRepository();
+        const product = repo.createProduct(fixtureProduct());
+        repo.addMedia({ id: "media-1", productId: product.id, sourceMessageId: "image-1", sourceUrl: "https://example.test/1", sequence: 1, downloadStatus: "pending", createdAt: 10 });
+
+        expect(() => repo.addMedia({ id: "media-collision", productId: product.id, sourceMessageId: "image-collision", sequence: 1, downloadStatus: "pending", createdAt: 11 })).toThrow();
+        repo.updateMedia("media-1", { checksum: "same", downloadStatus: "downloaded", localPath: "001.jpg" });
+        repo.addMedia({ id: "media-2", productId: product.id, sourceMessageId: "image-2", sourceUrl: "https://example.test/2", sequence: 2, downloadStatus: "failed", createdAt: 12 });
+
+        expect(() => repo.updateMedia("media-2", { checksum: "same", downloadStatus: "downloaded", localPath: "002.jpg" })).toThrow();
+        expect(repo.listRetryableMedia()).toMatchObject([{ id: "media-2", downloadStatus: "failed" }]);
+        expect(() => migrate(repo.database)).not.toThrow();
     });
 
     it("counts only active canonical hearts per user and records sync job outcomes", () => {
