@@ -142,6 +142,7 @@ credentials.json
 /.dev
 .worktrees/
 test/**/*.test.*
+.superpowers/
 
 # Product Monitor local state and planning artefacts
 .superpowers/
