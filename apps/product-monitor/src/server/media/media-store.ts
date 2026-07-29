@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, readFile, realpath, rm, unlink } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { ProductMedia, ProductRecord } from "../../shared/domain.js";
 import type { ProductRepository } from "../db/product-repository.js";
 
@@ -30,7 +30,7 @@ type PathStats = {
 };
 
 export type MediaFileSystem = {
-    mkdir(path: string, options: { recursive: true }): Promise<unknown>;
+    mkdir(path: string, options: { recursive: boolean }): Promise<unknown>;
     lstat(path: string): Promise<PathStats>;
     realpath(path: string): Promise<string>;
     readFile(path: string): Promise<Uint8Array>;
@@ -68,6 +68,8 @@ export class MediaStore {
     private readonly maximumBytes: number;
     private readonly temporaryId: () => string;
     private readonly activeDownloads = new Map<string, Promise<ProductMedia>>();
+    private static readonly rootInitializations = new Map<string, Promise<string>>();
+    private static readonly rootsCreatedByThisProcess = new Set<string>();
 
     public constructor(
         private readonly repository: ProductRepository,
@@ -82,18 +84,22 @@ export class MediaStore {
     }
 
     async download(callerProduct: ProductRecord, callerMedia: ProductMedia): Promise<ProductMedia> {
-        const existing = this.activeDownloads.get(callerMedia.id);
+        const { product, media } = this.requireCanonicalRows(callerProduct, callerMedia);
+        const existing = this.activeDownloads.get(media.id);
         if (existing) return existing;
-        const operation = this.downloadOnce(callerProduct, callerMedia);
-        this.activeDownloads.set(callerMedia.id, operation);
+        const operation = this.downloadOnce(product, media);
+        this.activeDownloads.set(media.id, operation);
         try {
             return await operation;
         } finally {
-            if (this.activeDownloads.get(callerMedia.id) === operation) this.activeDownloads.delete(callerMedia.id);
+            if (this.activeDownloads.get(media.id) === operation) this.activeDownloads.delete(media.id);
         }
     }
 
-    private async downloadOnce(callerProduct: ProductRecord, callerMedia: ProductMedia): Promise<ProductMedia> {
+    private requireCanonicalRows(callerProduct: ProductRecord, callerMedia: ProductMedia): {
+        product: ProductRecord;
+        media: ProductMedia;
+    } {
         const product = this.repository.getProduct(callerProduct.id);
         if (!product) throw new Error(`Product not found: ${callerProduct.id}`);
         const media = this.repository.getMedia(callerMedia.id);
@@ -101,6 +107,10 @@ export class MediaStore {
         if (media.productId !== product.id || callerMedia.productId !== product.id) {
             throw new Error(`Product media does not belong to product: ${callerMedia.id}`);
         }
+        return { product, media };
+    }
+
+    private async downloadOnce(product: ProductRecord, media: ProductMedia): Promise<ProductMedia> {
         if (media.downloadStatus === "downloaded" || media.downloadStatus === "duplicate") return media;
 
         let tempPath: string | undefined;
@@ -142,6 +152,11 @@ export class MediaStore {
                 return this.markDuplicate(media.id, checksum);
             }
             this.report(error);
+            const established = await this.reReadEstablishedDownload(media.id, finalPath, checksum);
+            if (established) {
+                await this.cleanup(tempPath);
+                return established;
+            }
             await this.cleanup(tempPath, publishedFinal ? finalPath : undefined);
             return this.markFailed(media.id);
         }
@@ -189,30 +204,67 @@ export class MediaStore {
      * exclusive marker. Every existing descendant is still lstat/realpath checked before use.
      */
     private async ensureOwnedRoot(root: string): Promise<string> {
-        let existed = true;
+        const activeInitialization = MediaStore.rootInitializations.get(root);
+        if (activeInitialization) return activeInitialization;
+        const initialization = this.initializeOwnedRoot(root);
+        MediaStore.rootInitializations.set(root, initialization);
         try {
-            await this.fileSystem.lstat(root);
-        } catch (error) {
-            if (!this.isMissing(error)) throw error;
-            existed = false;
+            return await initialization;
+        } finally {
+            if (MediaStore.rootInitializations.get(root) === initialization) {
+                MediaStore.rootInitializations.delete(root);
+            }
         }
-        await this.fileSystem.mkdir(root, { recursive: true });
+    }
+
+    private async initializeOwnedRoot(root: string): Promise<string> {
+        await this.fileSystem.mkdir(dirname(root), { recursive: true });
+        let created = false;
+        try {
+            await this.fileSystem.mkdir(root, { recursive: false });
+            created = true;
+            MediaStore.rootsCreatedByThisProcess.add(root);
+        } catch (error) {
+            if (!this.isFileExistsError(error)) throw error;
+        }
         await this.assertDirectoryNotLink(root);
         const marker = join(root, MEDIA_ROOT_MARKER);
-        if (!existed) await this.createRootMarker(marker);
-        await this.assertRootMarker(marker);
+        if (created || MediaStore.rootsCreatedByThisProcess.has(root)) {
+            await this.createRootMarker(marker);
+        } else {
+            await this.assertRootMarker(marker);
+        }
         return this.fileSystem.realpath(root);
     }
 
     private async createRootMarker(marker: string): Promise<void> {
+        const part = `${marker}.${this.temporaryId()}.part`;
         let file: WritableFile | undefined;
+        let publishing = false;
         try {
-            file = await this.fileSystem.open(marker, EXCLUSIVE_NOFOLLOW_FLAGS);
+            file = await this.fileSystem.open(part, EXCLUSIVE_NOFOLLOW_FLAGS);
             await this.writeCompletely(file, Buffer.from(MEDIA_ROOT_MARKER_CONTENT, "utf8"));
+            await file.close();
+            file = undefined;
+            publishing = true;
+            await this.fileSystem.link(part, marker);
+            await this.fileSystem.unlink(part);
+            MediaStore.rootsCreatedByThisProcess.delete(dirname(marker));
         } catch (error) {
-            if (!this.isFileExistsError(error)) throw error;
-        } finally {
-            if (file) await file.close();
+            if (file) {
+                try {
+                    await file.close();
+                } catch (closeError) {
+                    this.report(closeError);
+                }
+            }
+            await this.cleanup(part);
+            if (publishing && this.isFileExistsError(error)) {
+                await this.assertRootMarker(marker);
+                MediaStore.rootsCreatedByThisProcess.delete(dirname(marker));
+                return;
+            }
+            throw error;
         }
     }
 
@@ -314,6 +366,23 @@ export class MediaStore {
         if (!canonical) throw new Error(`Product media not found: ${media.id}`);
         if (canonical.downloadStatus === "downloaded") return canonical;
         return this.commitDownloaded(product.id, media.id, finalPath, checksum);
+    }
+
+    private async reReadEstablishedDownload(
+        mediaId: string,
+        finalPath: string | undefined,
+        checksum: string | undefined,
+    ): Promise<ProductMedia | null> {
+        if (!finalPath || !checksum) return null;
+        const canonical = this.repository.getMedia(mediaId);
+        if (canonical?.downloadStatus !== "downloaded" || canonical.checksum !== checksum) return null;
+        try {
+            const finalBytes = await this.fileSystem.readFile(finalPath);
+            return createHash("sha256").update(finalBytes).digest("hex") === checksum ? canonical : null;
+        } catch (error) {
+            this.report(error);
+            return null;
+        }
     }
 
     private markDuplicate(mediaId: string, checksum: string | undefined): ProductMedia {

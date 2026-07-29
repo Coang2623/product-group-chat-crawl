@@ -230,7 +230,7 @@ describe("MediaStore", () => {
             ...nativeFileSystem,
             open: async (path, flags) => {
                 const file = await open(path, flags);
-                if (!path.endsWith(".part")) return file;
+                if (!path.endsWith(".part") || path.includes(".zalo-product-monitor-media-root")) return file;
                 return {
                     write: (bytes) => file.write(bytes),
                     close: async () => {
@@ -297,6 +297,28 @@ describe("MediaStore", () => {
         expect((await mediaFiles(harness.product.mediaDirectory)).some((name) => name.endsWith(".part"))).toBe(false);
     });
 
+    it("rejects a forged caller while the canonical same-media download is still active", async () => {
+        const harness = await createHarness();
+        const media = attach(harness, pendingMedia(harness.product));
+        let releaseFetch: (() => void) | undefined;
+        const fetchStarted = new Promise<void>((resolveFetchStarted) => {
+            harness.setFetchResponse(async () => {
+                resolveFetchStarted();
+                await new Promise<void>((resolveFetch) => { releaseFetch = resolveFetch; });
+                return imageResponse(JPEG_BYTES);
+            });
+        });
+
+        const legitimate = harness.store.download(harness.product, media);
+        await fetchStarted;
+
+        await expect(harness.store.download(harness.product, { ...media, productId: "forged-product" }))
+            .rejects.toThrow("does not belong");
+        releaseFetch?.();
+
+        await expect(legitimate).resolves.toMatchObject({ downloadStatus: "downloaded" });
+    });
+
     it("converges separate-store EEXIST publication attempts on the matching final checksum", async () => {
         const harness = await createHarness();
         const media = attach(harness, pendingMedia(harness.product));
@@ -314,6 +336,46 @@ describe("MediaStore", () => {
         expect(harness.repo.getMedia(media.id)).toMatchObject({ downloadStatus: "downloaded" });
         expect(harness.repo.listPendingExcelJobs()).toMatchObject([{ productId: harness.product.id, status: "pending" }]);
         expect((await mediaFiles(harness.product.mediaDirectory)).some((name) => name.endsWith(".part"))).toBe(false);
+    });
+
+    it("preserves a loser-established download when the publisher transaction fails after EEXIST convergence", async () => {
+        const harness = await createHarness();
+        const media = attach(harness, pendingMedia(harness.product));
+        let releasePublisher: (() => void) | undefined;
+        const publisherPaused = new Promise<void>((resolvePublisherPaused) => {
+            // Resolved when the publisher owns a final but has not entered its DB transaction.
+            const publisherFileSystem: MediaFileSystem = {
+                ...nativeFileSystem,
+                unlink: async (path) => {
+                    if (path.endsWith(".part") && !path.includes(".zalo-product-monitor-media-root")) {
+                        resolvePublisherPaused();
+                        await new Promise<void>((resolvePublisher) => { releasePublisher = resolvePublisher; });
+                    }
+                    await unlink(path);
+                },
+            };
+            harness.store = new MediaStore(harness.repo, {
+                mediaRoot: harness.mediaRoot,
+                fetch: async () => imageResponse(JPEG_BYTES),
+                fileSystem: publisherFileSystem,
+            });
+        });
+        const loser = new MediaStore(harness.repo, {
+            mediaRoot: harness.mediaRoot,
+            fetch: async () => imageResponse(JPEG_BYTES),
+        });
+
+        const publisherResult = harness.store.download(harness.product, media);
+        await publisherPaused;
+        await expect(loser.download(harness.product, media)).resolves.toMatchObject({ downloadStatus: "downloaded" });
+        harness.repo.enqueueExcelSync = () => {
+            throw new Error("publisher transaction failure");
+        };
+        releasePublisher?.();
+
+        await expect(publisherResult).resolves.toMatchObject({ downloadStatus: "downloaded" });
+        expect(harness.repo.getMedia(media.id)).toMatchObject({ downloadStatus: "downloaded" });
+        await expect(readFile(resolve(harness.product.mediaDirectory, "001.jpg"))).resolves.toEqual(JPEG_BYTES);
     });
 
     it("turns a concurrent downloaded-checksum constraint loss into a duplicate and removes only its final", async () => {
@@ -349,6 +411,79 @@ describe("MediaStore", () => {
 
         expect(stored.downloadStatus).toBe("failed");
         await expect(readdir(harness.mediaRoot)).resolves.toEqual([]);
+    });
+
+    it("atomically initializes an overlapping process-owned root without exposing a partial marker", async () => {
+        const harness = await createHarness();
+        const media = attach(harness, pendingMedia(harness.product));
+        let releaseMarker: (() => void) | undefined;
+        const markerWriteStarted = new Promise<void>((resolveMarkerWriteStarted) => {
+            const fileSystem: MediaFileSystem = {
+                ...nativeFileSystem,
+                open: async (path, flags) => {
+                    const file = await open(path, flags);
+                    if (!path.includes(".zalo-product-monitor-media-root") || !path.endsWith(".part")) return file;
+                    return {
+                        write: async (bytes) => {
+                            resolveMarkerWriteStarted();
+                            await new Promise<void>((resolveMarker) => { releaseMarker = resolveMarker; });
+                            return file.write(bytes);
+                        },
+                        close: () => file.close(),
+                    };
+                },
+            };
+            harness.store = new MediaStore(harness.repo, {
+                mediaRoot: harness.mediaRoot,
+                fetch: async () => imageResponse(JPEG_BYTES),
+                fileSystem,
+            });
+        });
+        const secondStore = new MediaStore(harness.repo, {
+            mediaRoot: harness.mediaRoot,
+            fetch: async () => imageResponse(JPEG_BYTES),
+        });
+
+        const first = harness.store.download(harness.product, media);
+        await markerWriteStarted;
+        const second = secondStore.download(harness.product, media);
+        releaseMarker?.();
+
+        await expect(Promise.all([first, second])).resolves.toEqual([
+            expect.objectContaining({ downloadStatus: "downloaded" }),
+            expect.objectContaining({ downloadStatus: "downloaded" }),
+        ]);
+        expect((await readdir(harness.mediaRoot)).filter((name) => name.endsWith(".part"))).toEqual([]);
+    });
+
+    it("cleans a failed marker part so a retry can initialize the root", async () => {
+        const harness = await createHarness();
+        const media = attach(harness, pendingMedia(harness.product));
+        let failMarkerWrite = true;
+        const failingMarkerFileSystem: MediaFileSystem = {
+            ...nativeFileSystem,
+            open: async (path, flags) => {
+                const file = await open(path, flags);
+                if (!failMarkerWrite || !path.includes(".zalo-product-monitor-media-root") || !path.endsWith(".part")) return file;
+                return {
+                    write: async () => {
+                        throw new Error("marker write failure");
+                    },
+                    close: () => file.close(),
+                };
+            },
+        };
+        const failingStore = new MediaStore(harness.repo, {
+            mediaRoot: harness.mediaRoot,
+            fetch: async () => imageResponse(JPEG_BYTES),
+            fileSystem: failingMarkerFileSystem,
+        });
+
+        await expect(failingStore.download(harness.product, media)).resolves.toMatchObject({ downloadStatus: "failed" });
+        expect((await readdir(harness.mediaRoot)).filter((name) => name.endsWith(".part"))).toEqual([]);
+        failMarkerWrite = false;
+
+        await expect(harness.store.download(harness.product, media)).resolves.toMatchObject({ downloadStatus: "downloaded" });
     });
 
     it("rejects a missing canonical product without mutating a media row", async () => {
@@ -389,7 +524,7 @@ describe("MediaStore", () => {
             ...nativeFileSystem,
             open: async (path, flags) => {
                 const file = await open(path, flags);
-                if (!path.endsWith(".part")) return file;
+                if (!path.endsWith(".part") || path.includes(".zalo-product-monitor-media-root")) return file;
                 return {
                     write: async () => {
                         throw new Error("injected write failure");
@@ -446,7 +581,7 @@ describe("MediaStore", () => {
             await symlink(outside, resolve(harness.mediaRoot, "2026-07"), "junction");
         } catch (error) {
             const code = (error as NodeJS.ErrnoException).code;
-            if (["EPERM", "EACCES", "ENOTSUP", "EOPNOTSUPP", "UNKNOWN"].includes(code ?? "")) {
+            if (["EPERM", "EACCES", "ENOTSUP", "EOPNOTSUPP"].includes(code ?? "")) {
                 context.skip();
                 return;
             }
@@ -457,6 +592,6 @@ describe("MediaStore", () => {
         const stored = await harness.store.download(harness.product, media);
 
         expect(stored.downloadStatus).toBe("failed");
-        await expect(access(resolve(outside, "product-1", "001.jpg"))).rejects.toThrow();
+        await expect(access(resolve(outside, "product-1", "002.jpg"))).rejects.toThrow();
     });
 });
