@@ -120,8 +120,11 @@ describe("SqliteProductRepository", () => {
         expect(repo.updateHeartCount(product.id, 2).heartCount).toBe(2);
         repo.enqueueExcelSync(product.id);
         repo.markExcelJob(product.id, "failed", "network");
-        expect(repo.listPendingExcelJobs()).toEqual([]);
+        expect(repo.listPendingExcelJobs()).toMatchObject([{ productId: product.id, status: "failed" }]);
         expect(repo.database.prepare("SELECT attempts, last_error FROM excel_sync_jobs WHERE product_id = ?").get(product.id)).toMatchObject({ attempts: 1, last_error: "network" });
+        repo.completeExcelJob(product.id);
+        expect(repo.listPendingExcelJobs()).toEqual([]);
+        expect(repo.getProduct(product.id)?.excelSyncStatus).toBe("synced");
     });
 
     it("persists settings", () => {

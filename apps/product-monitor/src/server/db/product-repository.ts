@@ -89,6 +89,7 @@ export interface ProductRepository {
     enqueueExcelSync(productId: string): void;
     listPendingExcelJobs(): ExcelSyncJob[];
     markExcelJob(productId: string, status: ExcelSyncJob["status"], error?: string): void;
+    completeExcelJob(productId: string): void;
     getSetting(key: string): string | null;
     setSetting(key: string, value: string): void;
 }
@@ -272,27 +273,46 @@ export class SqliteProductRepository implements ProductRepository {
     }
 
     enqueueExcelSync(productId: string): void {
-        this.database.prepare(`
-            INSERT INTO excel_sync_jobs (product_id, operation, status, attempts, last_error, updated_at)
-            VALUES (?, 'upsert', 'pending', 0, NULL, ?)
-            ON CONFLICT(product_id) DO UPDATE SET operation = 'upsert', status = 'pending', last_error = NULL, updated_at = excluded.updated_at
-        `).run(productId, Date.now());
+        this.database.transaction(() => {
+            const updatedAt = Date.now();
+            this.database.prepare(`
+                INSERT INTO excel_sync_jobs (product_id, operation, status, attempts, last_error, updated_at)
+                VALUES (?, 'upsert', 'pending', 0, NULL, ?)
+                ON CONFLICT(product_id) DO UPDATE SET operation = 'upsert', status = 'pending', last_error = NULL, updated_at = excluded.updated_at
+            `).run(productId, updatedAt);
+            this.database.prepare("UPDATE products SET excel_sync_status = 'pending' WHERE id = ?")
+                .run(productId);
+        })();
     }
 
     listPendingExcelJobs(): ExcelSyncJob[] {
-        return this.database.prepare("SELECT * FROM excel_sync_jobs WHERE status = 'pending' ORDER BY updated_at ASC, product_id ASC").all()
+        return this.database.prepare("SELECT * FROM excel_sync_jobs WHERE status != 'running' ORDER BY updated_at ASC, product_id ASC").all()
             .map((row) => jobFromRow(row as JobRow));
     }
 
     markExcelJob(productId: string, status: ExcelSyncJob["status"], error?: string): void {
-        this.database.prepare(`
-            UPDATE excel_sync_jobs
-            SET status = @status,
-                attempts = attempts + CASE WHEN @status = 'failed' THEN 1 ELSE 0 END,
-                last_error = @error,
-                updated_at = @updatedAt
-            WHERE product_id = @productId
-        `).run({ productId, status, error: error ?? null, updatedAt: Date.now() });
+        this.database.transaction(() => {
+            const updatedAt = Date.now();
+            this.database.prepare(`
+                UPDATE excel_sync_jobs
+                SET status = @status,
+                    attempts = attempts + CASE WHEN @status = 'failed' THEN 1 ELSE 0 END,
+                    last_error = @error,
+                    updated_at = @updatedAt
+                WHERE product_id = @productId
+            `).run({ productId, status, error: error ?? null, updatedAt });
+            const productStatus = status === "blocked" || status === "failed" ? status : "pending";
+            this.database.prepare("UPDATE products SET excel_sync_status = ? WHERE id = ?")
+                .run(productStatus, productId);
+        })();
+    }
+
+    completeExcelJob(productId: string): void {
+        this.database.transaction(() => {
+            this.database.prepare("DELETE FROM excel_sync_jobs WHERE product_id = ?").run(productId);
+            this.database.prepare("UPDATE products SET excel_sync_status = 'synced' WHERE id = ?")
+                .run(productId);
+        })();
     }
 
     getSetting(key: string): string | null {
