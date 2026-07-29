@@ -1,12 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
-import { link, lstat, mkdir, open, realpath, rm, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import { link, lstat, mkdir, open, readFile, realpath, rm, unlink } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { ProductMedia, ProductRecord } from "../../shared/domain.js";
 import type { ProductRepository } from "../db/product-repository.js";
 
 const DEFAULT_MAXIMUM_BYTES = 10 * 1024 * 1024;
+const MEDIA_ROOT_MARKER = ".zalo-product-monitor-media-root";
+const MEDIA_ROOT_MARKER_CONTENT = "zalo-product-monitor-media-root-v1\n";
+const EXCLUSIVE_NOFOLLOW_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
 
-type DownloadResponse = {
+export type MediaDownloadResponse = {
     ok: boolean;
     status: number;
     headers: Pick<Headers, "get">;
@@ -29,7 +33,9 @@ export type MediaFileSystem = {
     mkdir(path: string, options: { recursive: true }): Promise<unknown>;
     lstat(path: string): Promise<PathStats>;
     realpath(path: string): Promise<string>;
-    open(path: string, flags: "wx"): Promise<WritableFile>;
+    readFile(path: string): Promise<Uint8Array>;
+    readTextFile(path: string): Promise<string>;
+    open(path: string, flags: "wx" | number): Promise<WritableFile>;
     link(existingPath: string, newPath: string): Promise<void>;
     unlink(path: string): Promise<void>;
     rm(path: string, options: { force: true }): Promise<void>;
@@ -37,20 +43,31 @@ export type MediaFileSystem = {
 
 export type MediaStoreOptions = {
     mediaRoot: string;
-    fetch: (url: string) => Promise<DownloadResponse>;
+    fetch: (url: string) => Promise<MediaDownloadResponse>;
     fileSystem?: MediaFileSystem;
     maximumBytes?: number;
     temporaryId?: () => string;
     onError?: (error: unknown) => void;
 };
 
-const nodeFileSystem: MediaFileSystem = { mkdir, lstat, realpath, open, link, unlink, rm };
+const nodeFileSystem: MediaFileSystem = {
+    mkdir,
+    lstat,
+    realpath,
+    readFile: async (path) => readFile(path),
+    readTextFile: async (path) => readFile(path, "utf8"),
+    open,
+    link,
+    unlink,
+    rm,
+};
 
 /** Downloads product images into a contained directory and commits their metadata atomically. */
 export class MediaStore {
     private readonly fileSystem: MediaFileSystem;
     private readonly maximumBytes: number;
     private readonly temporaryId: () => string;
+    private readonly activeDownloads = new Map<string, Promise<ProductMedia>>();
 
     public constructor(
         private readonly repository: ProductRepository,
@@ -65,10 +82,24 @@ export class MediaStore {
     }
 
     async download(callerProduct: ProductRecord, callerMedia: ProductMedia): Promise<ProductMedia> {
+        const existing = this.activeDownloads.get(callerMedia.id);
+        if (existing) return existing;
+        const operation = this.downloadOnce(callerProduct, callerMedia);
+        this.activeDownloads.set(callerMedia.id, operation);
+        try {
+            return await operation;
+        } finally {
+            if (this.activeDownloads.get(callerMedia.id) === operation) this.activeDownloads.delete(callerMedia.id);
+        }
+    }
+
+    private async downloadOnce(callerProduct: ProductRecord, callerMedia: ProductMedia): Promise<ProductMedia> {
         const product = this.repository.getProduct(callerProduct.id);
+        if (!product) throw new Error(`Product not found: ${callerProduct.id}`);
         const media = this.repository.getMedia(callerMedia.id);
-        if (!product || !media || media.productId !== product.id || callerMedia.productId !== product.id) {
-            return media ?? callerMedia;
+        if (!media) throw new Error(`Product media not found: ${callerMedia.id}`);
+        if (media.productId !== product.id || callerMedia.productId !== product.id) {
+            throw new Error(`Product media does not belong to product: ${callerMedia.id}`);
         }
         if (media.downloadStatus === "downloaded" || media.downloadStatus === "duplicate") return media;
 
@@ -97,6 +128,15 @@ export class MediaStore {
             await this.fileSystem.unlink(tempPath);
             return this.commitDownloaded(product.id, media.id, finalPath, checksum);
         } catch (error) {
+            if (this.isFileExistsError(error) && finalPath && checksum) {
+                await this.cleanup(tempPath);
+                try {
+                    return await this.convergeExistingFinal(product, media, finalPath, checksum);
+                } catch (convergenceError) {
+                    this.report(convergenceError);
+                    return this.markFailed(media.id);
+                }
+            }
             if (this.isDownloadedChecksumConflict(error)) {
                 await this.cleanup(tempPath, publishedFinal ? finalPath : undefined);
                 return this.markDuplicate(media.id, checksum);
@@ -129,9 +169,7 @@ export class MediaStore {
     }
 
     private async ensureOwnedDirectory(root: string, directory: string): Promise<string> {
-        await this.fileSystem.mkdir(root, { recursive: true });
-        await this.assertDirectoryNotLink(root);
-        const realRoot = await this.fileSystem.realpath(root);
+        const realRoot = await this.ensureOwnedRoot(root);
         const descendant = relative(root, directory);
         const segments = descendant.split(sep).filter(Boolean);
         let current = root;
@@ -143,6 +181,50 @@ export class MediaStore {
         const realDirectory = await this.fileSystem.realpath(directory);
         this.assertDescendant(realRoot, realDirectory);
         return realDirectory;
+    }
+
+    /**
+     * Local threat model: this is a process-owned, single-user root. Node has no portable openat/O_NOFOLLOW
+     * traversal API, so an arbitrary pre-populated directory is rejected unless this application created its
+     * exclusive marker. Every existing descendant is still lstat/realpath checked before use.
+     */
+    private async ensureOwnedRoot(root: string): Promise<string> {
+        let existed = true;
+        try {
+            await this.fileSystem.lstat(root);
+        } catch (error) {
+            if (!this.isMissing(error)) throw error;
+            existed = false;
+        }
+        await this.fileSystem.mkdir(root, { recursive: true });
+        await this.assertDirectoryNotLink(root);
+        const marker = join(root, MEDIA_ROOT_MARKER);
+        if (!existed) await this.createRootMarker(marker);
+        await this.assertRootMarker(marker);
+        return this.fileSystem.realpath(root);
+    }
+
+    private async createRootMarker(marker: string): Promise<void> {
+        let file: WritableFile | undefined;
+        try {
+            file = await this.fileSystem.open(marker, EXCLUSIVE_NOFOLLOW_FLAGS);
+            await this.writeCompletely(file, Buffer.from(MEDIA_ROOT_MARKER_CONTENT, "utf8"));
+        } catch (error) {
+            if (!this.isFileExistsError(error)) throw error;
+        } finally {
+            if (file) await file.close();
+        }
+    }
+
+    private async assertRootMarker(marker: string): Promise<void> {
+        const stats = await this.fileSystem.lstat(marker);
+        if (stats.isSymbolicLink() || stats.isDirectory()) {
+            throw new Error(`Media root marker is not a regular file: ${marker}`);
+        }
+        const content = await this.fileSystem.readTextFile(marker);
+        if (content !== MEDIA_ROOT_MARKER_CONTENT) {
+            throw new Error("Media root is not owned by this application");
+        }
     }
 
     private async assertDirectoryNotLink(path: string): Promise<void> {
@@ -176,7 +258,7 @@ export class MediaStore {
         } catch (error) {
             primaryError = error;
         } finally {
-            if (!completed) this.cancelReader(reader);
+            if (!completed) await this.cancelReader(reader);
             try {
                 reader.releaseLock();
             } catch (error) {
@@ -219,6 +301,21 @@ export class MediaStore {
         });
     }
 
+    private async convergeExistingFinal(
+        product: ProductRecord,
+        media: ProductMedia,
+        finalPath: string,
+        checksum: string,
+    ): Promise<ProductMedia> {
+        const finalBytes = await this.fileSystem.readFile(finalPath);
+        const finalChecksum = createHash("sha256").update(finalBytes).digest("hex");
+        if (finalChecksum !== checksum) throw new Error("Existing final file checksum differs from this download");
+        const canonical = this.repository.getMedia(media.id);
+        if (!canonical) throw new Error(`Product media not found: ${media.id}`);
+        if (canonical.downloadStatus === "downloaded") return canonical;
+        return this.commitDownloaded(product.id, media.id, finalPath, checksum);
+    }
+
     private markDuplicate(mediaId: string, checksum: string | undefined): ProductMedia {
         return this.repository.runInTransaction(() => this.repository.updateMedia(mediaId, {
             checksum,
@@ -243,6 +340,14 @@ export class MediaStore {
             (error as Error & { code?: unknown }).code === "SQLITE_CONSTRAINT_UNIQUE" &&
             (error.message.includes("product_media_downloaded_checksum_unique") ||
                 error.message.includes("product_media.product_id, product_media.checksum"));
+    }
+
+    private isMissing(error: unknown): boolean {
+        return (error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+    }
+
+    private isFileExistsError(error: unknown): boolean {
+        return (error as NodeJS.ErrnoException | undefined)?.code === "EEXIST";
     }
 
     private assertImageMimeType(contentType: string | null): void {
@@ -270,8 +375,12 @@ export class MediaStore {
         }
     }
 
-    private cancelReader(reader: ReadableStreamDefaultReader<Uint8Array>): void {
-        void reader.cancel().catch((error: unknown) => this.report(error));
+    private async cancelReader(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<void> {
+        try {
+            await reader.cancel();
+        } catch (error) {
+            this.report(error);
+        }
     }
 
     private report(error: unknown): void {
