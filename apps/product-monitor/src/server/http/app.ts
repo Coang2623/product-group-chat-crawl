@@ -21,6 +21,7 @@ export type HttpAppDependencies = {
     excelWorker: ExcelWorker;
     zalo: ZaloProductAdapter;
     events?: SseHub;
+    clientDirectory?: string;
 };
 
 const identifier = z.string()
@@ -73,6 +74,8 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
         void zalo.beginQrLogin((event) => {
             events.publish({ type: "auth.qr", ...event });
         }).then(() => {
+            return zalo.start();
+        }).then(() => {
             events.publish({ type: "connection.status", state: "connected" });
         }).catch(() => {
             events.publish({ type: "connection.status", state: "disconnected" });
@@ -94,6 +97,21 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
         try {
             const filter = parse(listQuery, request.query);
             response.json({ products: repository.listProducts(filter) });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.get("/api/products/:id/cover", (request, response, next) => {
+        try {
+            const { id } = parse(productParams, request.params);
+            const product = repository.getProduct(id);
+            if (!product?.coverImagePath) {
+                throw new ApiError(404, "media_not_found", "Không tìm thấy ảnh đại diện");
+            }
+            response.sendFile(resolve(product.coverImagePath), (error) => {
+                if (error && !response.headersSent) next(error);
+            });
         } catch (error) {
             next(error);
         }
@@ -181,6 +199,16 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
             unsubscribe();
         });
     });
+
+    if (dependencies.clientDirectory) {
+        app.use(express.static(dependencies.clientDirectory));
+        app.get("*", (request, response, next) => {
+            if (request.path.startsWith("/api/")) return next();
+            response.sendFile(resolve(dependencies.clientDirectory!, "index.html"), (error) => {
+                if (error && !response.headersSent) next(error);
+            });
+        });
+    }
 
     app.use((_request, _response, next) => {
         next(new ApiError(404, "route_not_found", "Không tìm thấy API"));

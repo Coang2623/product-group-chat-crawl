@@ -5,7 +5,7 @@ import type {
 import type { ProductRepository } from "../db/product-repository.js";
 
 export type ReactionAggregatorOptions = {
-    activeGroupId: string;
+    activeGroupId: string | (() => string | null);
     onIgnored?: (
         reason: "inactive_group" | "unmapped_message",
         event: NormalizedReactionEvent,
@@ -27,7 +27,10 @@ export class ReactionAggregator {
     ) {}
 
     apply(event: NormalizedReactionEvent): ProductRecord[] {
-        if (event.groupId !== this.options.activeGroupId) {
+        const activeGroupId = typeof this.options.activeGroupId === "function"
+            ? this.options.activeGroupId()
+            : this.options.activeGroupId;
+        if (event.groupId !== activeGroupId) {
             this.reportIgnored("inactive_group", event);
             return [];
         }
@@ -42,7 +45,7 @@ export class ReactionAggregator {
                 seenTargets.add(targetMessageId);
 
                 const product = this.repository.getProductByTargetMessageId(targetMessageId);
-                if (!product || product.groupId !== this.options.activeGroupId) {
+                if (!product || product.groupId !== activeGroupId) {
                     this.reportIgnored("unmapped_message", event, targetMessageId);
                     continue;
                 }

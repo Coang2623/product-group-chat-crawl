@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"tsx watch src/server/index.ts\" \"vite\"",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "rimraf dist && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/server/index.js"

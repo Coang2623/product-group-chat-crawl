@@ -6,6 +6,9 @@ type QrLoginProps = {
 };
 
 export function QrLogin({ image, state, busy, onBegin }: QrLoginProps) {
+    const qrSource = image && (image.startsWith("data:")
+        ? image
+        : `data:image/png;base64,${image}`);
     return (
         <main className="auth-shell">
             <section className="auth-story" aria-label="Giới thiệu chế độ chỉ đọc">
@@ -25,8 +28,8 @@ export function QrLogin({ image, state, busy, onBegin }: QrLoginProps) {
                     <p className="eyebrow">ĐĂNG NHẬP CỤC BỘ</p>
                     <h2>Kết nối tài khoản Zalo</h2>
                     <p>Mở Zalo trên điện thoại và quét mã để bắt đầu.</p>
-                    {image ? (
-                        <img className="qr-image" src={image} alt="Mã QR đăng nhập Zalo" />
+                    {qrSource ? (
+                        <img className="qr-image" src={qrSource} alt="Mã QR đăng nhập Zalo" />
                     ) : (
                         <div className="qr-placeholder" aria-hidden="true">⌗</div>
                     )}

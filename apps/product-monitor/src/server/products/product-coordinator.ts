@@ -11,8 +11,8 @@ import type { ProductRepository } from "../db/product-repository.js";
 import { parseLaptopPost, type LaptopParseResult } from "../parser/laptop-parser.js";
 
 export type ProductCoordinatorOptions = {
-    activeGroupId: string;
-    publisherId: string;
+    activeGroupId: string | (() => string | null);
+    publisherId: string | (() => string | string[] | null);
     mediaRoot: string;
 };
 
@@ -56,7 +56,7 @@ export class ProductCoordinator {
         return this.repository.runInTransaction(() => {
             const active = this.repository.getActiveProduct();
             if (!active) return "orphan";
-            if (active.groupId !== this.options.activeGroupId || active.senderId !== this.options.publisherId) {
+            if (active.groupId !== this.activeGroupId() || !this.publisherIds().includes(active.senderId)) {
                 return "orphan";
             }
 
@@ -83,15 +83,28 @@ export class ProductCoordinator {
     }
 
     private assertActiveGroup(groupId: string): void {
-        if (groupId !== this.options.activeGroupId) {
+        if (groupId !== this.activeGroupId()) {
             throw new Error(`Event is not from active group: ${groupId}`);
         }
     }
 
     private assertPublisher(senderId: string): void {
-        if (senderId !== this.options.publisherId) {
+        if (!this.publisherIds().includes(senderId)) {
             throw new Error(`Event is not from configured publisher: ${senderId}`);
         }
+    }
+
+    private activeGroupId(): string | null {
+        return typeof this.options.activeGroupId === "function"
+            ? this.options.activeGroupId()
+            : this.options.activeGroupId;
+    }
+
+    private publisherIds(): string[] {
+        const value = typeof this.options.publisherId === "function"
+            ? this.options.publisherId()
+            : this.options.publisherId;
+        return Array.isArray(value) ? value : value ? [value] : [];
     }
 }
 

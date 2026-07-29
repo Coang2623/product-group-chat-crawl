@@ -150,6 +150,7 @@ apps/product-monitor/data/
 apps/product-monitor/*.sqlite
 apps/product-monitor/*.xlsx
 apps/product-monitor/credentials.json
+apps/product-monitor/dist/
 !apps/product-monitor/test/
 !apps/product-monitor/test/**/*.test.*
 

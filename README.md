@@ -1,5 +1,9 @@
 # 🚀 Zalo API Final - API Zalo Cá Nhân Hoàn Chỉnh
 
+## Ứng dụng Zalo Product Monitor
+
+Repository này có thêm ứng dụng local chỉ đọc để map tin mô tả laptop, ảnh và lượt tym từ một nhóm Zalo sang SQLite và Excel, kèm giao diện realtime. Xem hướng dẫn cài đặt, vận hành và recovery tại [apps/product-monitor/README.md](apps/product-monitor/README.md).
+
 [![npm version](https://badge.fury.io/js/zalo-api-final.svg)](https://badge.fury.io/js/zalo-api-final)
 [![Downloads](https://img.shields.io/npm/dm/zalo-api-final.svg)](https://www.npmjs.com/package/zalo-api-final)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
