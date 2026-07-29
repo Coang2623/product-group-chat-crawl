@@ -10,6 +10,9 @@
     "description": "zalo-api-final - API Zalo cá nhân hoàn chỉnh cho JavaScript. Xây dựng node n8n, backend quản lý nhiều tài khoản Zalo, phần mềm bán hàng, quản trị Zalo cho công ty tăng doanh số. Gửi tin nhắn, tạo nhóm, quản lý bạn bè, chặn/bỏ chặn người dùng, chấp nhận lời mời kết bạn, nhận webhook, lấy danh sách bạn bè, quản lý nhóm và tự động hóa chat Zalo. Hỗ trợ multi-account management cho doanh nghiệp. Thư viện Zalo API cuối cùng và tốt nhất.",
     "main": "dist/index.js",
     "type": "module",
+    "workspaces": [
+        "apps/product-monitor"
+    ],
     "exports": {
         ".": {
             "require": "./dist/cjs/index.cjs",

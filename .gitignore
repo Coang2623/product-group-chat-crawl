@@ -143,6 +143,15 @@ credentials.json
 .worktrees/
 test/**/*.test.*
 
+# Product Monitor local state and planning artefacts
+.superpowers/
+apps/product-monitor/data/
+apps/product-monitor/*.sqlite
+apps/product-monitor/*.xlsx
+apps/product-monitor/credentials.json
+!apps/product-monitor/test/
+!apps/product-monitor/test/**/*.test.*
+
 # Project specific - files không cần cho end users
 examples/
 # Keep .husky for git hooks
