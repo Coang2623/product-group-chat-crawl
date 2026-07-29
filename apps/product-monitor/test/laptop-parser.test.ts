@@ -27,6 +27,10 @@ describe("parseVietnamesePrice", () => {
     ])("rejects the near-miss price %s", (raw) => {
         expect(parseVietnamesePrice(raw)).toBeNull();
     });
+
+    it("does not treat a number on the next line as a price fraction", () => {
+        expect(parseVietnamesePrice("GIÁ 5 TRIỆU\n090")).toBe(5_000_000);
+    });
 });
 
 describe("parseLaptopPost", () => {
@@ -112,6 +116,16 @@ describe("parseLaptopPost", () => {
             .toEqual({ ok: false, fields: {}, reason: "structure_not_recognized" });
     });
 
+    it("rejects a Precision tower even when its fields look complete", () => {
+        expect(parseLaptopPost("DELL PRECISION 3660 TOWER - CPU CORE I7 12700 - RAM 16GB - SSD 512GB - GIÁ 8 TRIỆU"))
+            .toEqual({ ok: false, fields: {}, reason: "structure_not_recognized" });
+    });
+
+    it.each(["DESKTOP", "TOWER", "AIO", "ALL-IN-ONE"])("rejects a recognised laptop family marked as %s", (marker) => {
+        expect(parseLaptopPost(`HP PROBOOK 450G5 - CPU CORE I5 8250U - RAM 8GB - SSD 256GB - ${marker} - GIÁ 3 TRIỆU 8`))
+            .toEqual({ ok: false, fields: {}, reason: "structure_not_recognized" });
+    });
+
     it("canonicalizes a hyphenated Core CPU model", () => {
         expect(parseLaptopPost("HP PROBOOK 450G5 - CPU CORE I5-8250U - RAM 8GB - SSD 256GB - GIÁ 3 TRIỆU 8"))
             .toMatchObject({ ok: true, fields: { cpu: "Core i5 8250U" } });
@@ -122,5 +136,22 @@ describe("parseLaptopPost", () => {
 
         expect(result).toMatchObject({ ok: true, fields: { productName: "MacBook Air 13.3 2018" } });
         if (result.ok) expect(result.fields.notes).toBeUndefined();
+    });
+
+    it("keeps a next-line number in notes instead of the price", () => {
+        expect(parseLaptopPost("HP PROBOOK 450G5 - CPU CORE I5 8250U - RAM 8GB - SSD 256GB - GIÁ 5 TRIỆU\n090 GHI CHÚ"))
+            .toMatchObject({
+                ok: true,
+                fields: {
+                    price: 5_000_000,
+                    rawPrice: "GIÁ 5 TRIỆU",
+                    notes: "090 GHI CHÚ",
+                },
+            });
+    });
+
+    it("canonicalizes a safely whitelisted ThinkPad family", () => {
+        expect(parseLaptopPost("LENOVO THINKPAD T480 - CPU CORE I5 8250U - RAM 8GB - SSD 256GB - GIÁ 5 TRIỆU"))
+            .toMatchObject({ ok: true, fields: { productName: "Lenovo ThinkPad T480" } });
     });
 });

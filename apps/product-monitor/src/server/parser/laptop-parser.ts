@@ -23,10 +23,25 @@ const CORE_FIELD_PATTERNS = {
 };
 
 const PRICE_LABEL_PATTERN = /(?<![\p{L}\p{N}_])(?:GIÁ|GIA)(?![\p{L}\p{N}_])/iu;
-const PRICE_PATTERN = /(?<![\p{L}\p{N}_])(?:GIÁ|GIA)(?![\p{L}\p{N}_])(?:\s+THU\s+VỀ)?\s*:?\s*\d+\s*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:\s+\d{1,3})?(?!\s*\d)/iu;
-const PRICE_VALUE_PATTERN = /(?<![\p{L}\p{N}_])(\d+)\s*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:\s+(\d{1,3}))?(?!\s*\d)/iu;
+const PRICE_PATTERN = /(?<![\p{L}\p{N}_])(?:GIÁ|GIA)(?![\p{L}\p{N}_])(?:[ \t]+THU[ \t]+VỀ)?[ \t]*:?[ \t]*\d+[ \t]*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:[ \t]+\d{1,3})?(?![ \t]*\d)/iu;
+const PRICE_VALUE_PATTERN = /(?<![\p{L}\p{N}_])(\d+)[ \t]*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:[ \t]+(\d{1,3}))?(?![ \t]*\d)/iu;
 const LAPTOP_NAME_PATTERN = /^(.*?)(?:\s*[-–]\s*|\s+)(?=(?:CPU\s*)?(?:CORE\s+I[3579]\s*[- ]?\w+|M[123]\b))/i;
-const LAPTOP_FAMILY_PATTERN = /\b(?:MACBOOK|PROBOOK|ZBOOK|ELITEBOOK|PAVILION|ENVY|OMEN|SPECTRE|THINKPAD|IDEAPAD|LEGION|THINKBOOK|YOGA|LOQ|LATITUDE|INSPIRON|VOSTRO|PRECISION|XPS|ALIENWARE|VIVOBOOK|ZENBOOK|EXPERTBOOK|ROG|TUF|ASPIRE|SWIFT|TRAVELMATE|NITRO|PREDATOR|CHROMEBOOK|SURFACE\s+LAPTOP|MSI\s+(?:MODERN|KATANA|STEALTH|PRESTIGE|BRAVO|GF|GS)|LAPTOP)\b/i;
+const LAPTOP_FAMILY_PATTERN = /\b(?:MACBOOK|PROBOOK|ZBOOK|ELITEBOOK|THINKPAD|IDEAPAD|THINKBOOK|YOGA|LATITUDE|VIVOBOOK|ZENBOOK|SWIFT|TRAVELMATE|SURFACE[ \t]+LAPTOP|CHROMEBOOK|LAPTOP)\b/i;
+const DESKTOP_MARKER_PATTERN = /\b(?:DESKTOP|TOWER|AIO|ALL[ -]?IN[ -]?ONE)\b/i;
+const CANONICAL_PRODUCT_WORDS: Record<string, string> = {
+    HP: "HP",
+    MACBOOK: "MacBook",
+    PROBOOK: "ProBook",
+    ZBOOK: "ZBook",
+    ELITEBOOK: "EliteBook",
+    THINKPAD: "ThinkPad",
+    IDEAPAD: "IdeaPad",
+    THINKBOOK: "ThinkBook",
+    VIVOBOOK: "VivoBook",
+    ZENBOOK: "ZenBook",
+    TRAVELMATE: "TravelMate",
+    CHROMEBOOK: "Chromebook",
+};
 
 export function parseVietnamesePrice(raw: string): number | null {
     if (/(?:GIÁ|GIA)/iu.test(raw) && !PRICE_LABEL_PATTERN.test(raw)) return null;
@@ -43,6 +58,8 @@ export function parseVietnamesePrice(raw: string): number | null {
 }
 
 export function parseLaptopPost(content: string): LaptopParseResult {
+    if (DESKTOP_MARKER_PATTERN.test(content)) return unrecognized();
+
     const priceMatch = PRICE_PATTERN.exec(content);
     if (!priceMatch) return unrecognized();
 
@@ -138,10 +155,7 @@ function formatProductName(value: string): string {
         .split(" ")
         .map((word) => {
             const upper = word.toUpperCase();
-            if (upper === "HP") return "HP";
-            if (upper === "MACBOOK") return "MacBook";
-            if (upper === "PROBOOK") return "ProBook";
-            if (upper === "ZBOOK") return "ZBook";
+            if (CANONICAL_PRODUCT_WORDS[upper]) return CANONICAL_PRODUCT_WORDS[upper];
             if (/^\d/.test(word)) return word.toUpperCase();
             return capitalize(word);
         })
