@@ -15,18 +15,22 @@ export type LaptopParseResult =
     | { ok: false; fields: Record<string, never>; reason: "structure_not_recognized" };
 
 const CORE_FIELD_PATTERNS = {
-    cpu: /\b(?:CPU\s*)?(CORE\s+I[3579]\s*[- ]?\w+|M[123]\b)/i,
+    cpu: /\b(?:CPU\s*)?(?:CORE\s+I([3579])\s*[- ]?\s*([A-Z0-9]+)|(M[123]))\b/i,
     ram: /\bRAM\s*:?\s*(\d+\s*GB)\b/i,
     storage: /\b(?:Ổ\s*)?(SSD|HDD)\s*:?\s*(\d+\s*(?:GB|TB))\b/i,
     gpu: /\b(?:CARD|GPU)\s*:?\s*([^\-–\n]+)/i,
     display: /\b(?:MÀN|MAN)(?:\s+(?:HÌNH|HINH))?\s*:?\s*([^\-–\n]+)/i,
 };
 
-const PRICE_PATTERN = /(?:GIÁ|GIA)(?:\s+THU\s+VỀ)?\s*:?\s*\d+\s*(?:TRIỆU|TRIEU)(?:\s+\d{1,3})?/i;
-const PRICE_VALUE_PATTERN = /\b(\d+)\s*(?:TRIỆU|TRIEU)(?:\s+(\d{1,3}))?\b/i;
+const PRICE_LABEL_PATTERN = /(?<![\p{L}\p{N}_])(?:GIÁ|GIA)(?![\p{L}\p{N}_])/iu;
+const PRICE_PATTERN = /(?<![\p{L}\p{N}_])(?:GIÁ|GIA)(?![\p{L}\p{N}_])(?:\s+THU\s+VỀ)?\s*:?\s*\d+\s*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:\s+\d{1,3})?(?!\s*\d)/iu;
+const PRICE_VALUE_PATTERN = /(?<![\p{L}\p{N}_])(\d+)\s*(?:TRIỆU|TRIEU)(?![\p{L}\p{N}_])(?:\s+(\d{1,3}))?(?!\s*\d)/iu;
 const LAPTOP_NAME_PATTERN = /^(.*?)(?:\s*[-–]\s*|\s+)(?=(?:CPU\s*)?(?:CORE\s+I[3579]\s*[- ]?\w+|M[123]\b))/i;
+const LAPTOP_FAMILY_PATTERN = /\b(?:MACBOOK|PROBOOK|ZBOOK|ELITEBOOK|PAVILION|ENVY|OMEN|SPECTRE|THINKPAD|IDEAPAD|LEGION|THINKBOOK|YOGA|LOQ|LATITUDE|INSPIRON|VOSTRO|PRECISION|XPS|ALIENWARE|VIVOBOOK|ZENBOOK|EXPERTBOOK|ROG|TUF|ASPIRE|SWIFT|TRAVELMATE|NITRO|PREDATOR|CHROMEBOOK|SURFACE\s+LAPTOP|MSI\s+(?:MODERN|KATANA|STEALTH|PRESTIGE|BRAVO|GF|GS)|LAPTOP)\b/i;
 
 export function parseVietnamesePrice(raw: string): number | null {
+    if (/(?:GIÁ|GIA)/iu.test(raw) && !PRICE_LABEL_PATTERN.test(raw)) return null;
+
     const match = raw.match(PRICE_VALUE_PATTERN);
     if (!match) return null;
 
@@ -49,7 +53,7 @@ export function parseLaptopPost(content: string): LaptopParseResult {
     const ram = extractRam(primaryConfiguration);
     const storage = extractStorage(primaryConfiguration);
 
-    if (!productName || !cpu || !ram || !storage || price === null) return unrecognized();
+    if (!productName || !isRecognizedLaptopFamily(productName) || !cpu || !ram || !storage || price === null) return unrecognized();
 
     const fields: ParsedLaptopFields = {
         productName,
@@ -82,12 +86,11 @@ function extractProductName(primaryConfiguration: string): string | null {
 }
 
 function extractCpu(primaryConfiguration: string): string | null {
-    const value = primaryConfiguration.match(CORE_FIELD_PATTERNS.cpu)?.[1];
-    if (!value) return null;
+    const match = primaryConfiguration.match(CORE_FIELD_PATTERNS.cpu);
+    if (!match) return null;
 
-    if (/^M[123]$/i.test(value)) return value.toUpperCase();
-    const [series, model] = collapseWhitespace(value).split(" ");
-    return `${capitalize(series)} ${model.toLowerCase()} ${collapseWhitespace(value).split(" ").slice(2).join(" ").toUpperCase()}`.trim();
+    if (match[3]) return match[3].toUpperCase();
+    return `Core i${match[1]} ${match[2].toUpperCase()}`;
 }
 
 function extractRam(primaryConfiguration: string): string | null {
@@ -111,14 +114,19 @@ function extractDisplay(primaryConfiguration: string): string | null {
 }
 
 function collectNotes(primaryConfiguration: string, contentAfterPrice: string): string | null {
-    const primaryNotes = primaryConfiguration
+    const primarySegments = primaryConfiguration
         .split(/\r?\n|\s+[-–]\s+/)
         .map((segment) => segment.trim())
-        .filter((segment, index) => index > 0 && segment && !isStructuredField(segment));
+        .filter(Boolean);
+    const primaryNotes = primarySegments.slice(1).filter((segment) => !isStructuredField(segment));
     const trailingNotes = contentAfterPrice.trim();
     const notes = [...primaryNotes, trailingNotes].filter(Boolean).join("\n");
 
     return notes || null;
+}
+
+function isRecognizedLaptopFamily(productName: string): boolean {
+    return LAPTOP_FAMILY_PATTERN.test(productName);
 }
 
 function isStructuredField(segment: string): boolean {

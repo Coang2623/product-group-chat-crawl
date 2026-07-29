@@ -20,6 +20,13 @@ describe("parseVietnamesePrice", () => {
     it("returns null when the text does not contain a triệu price", () => {
         expect(parseVietnamesePrice("LIÊN HỆ")).toBeNull();
     });
+
+    it.each([
+        "GIÁ 5 TRIỆU 9000",
+        "BẢNGIÁ 5 TRIỆU",
+    ])("rejects the near-miss price %s", (raw) => {
+        expect(parseVietnamesePrice(raw)).toBeNull();
+    });
 });
 
 describe("parseLaptopPost", () => {
@@ -74,8 +81,14 @@ describe("parseLaptopPost", () => {
         if (result.ok) expect(result.fields.notes).toContain("VỎ ĐẸP");
     });
 
-    it("rejects text missing a required structured field", () => {
-        expect(parseLaptopPost("HP PROBOOK 450G5 - RAM 8GB - GIÁ 3 TRIỆU 8")).toEqual({
+    it.each([
+        ["product name", "CPU CORE I5 8250U - RAM 8GB - SSD 256GB - GIÁ 3 TRIỆU 8"],
+        ["CPU", "HP PROBOOK 450G5 - RAM 8GB - SSD 256GB - GIÁ 3 TRIỆU 8"],
+        ["RAM", "HP PROBOOK 450G5 - CPU CORE I5 8250U - SSD 256GB - GIÁ 3 TRIỆU 8"],
+        ["storage", "HP PROBOOK 450G5 - CPU CORE I5 8250U - RAM 8GB - GIÁ 3 TRIỆU 8"],
+        ["price", "HP PROBOOK 450G5 - CPU CORE I5 8250U - RAM 8GB - SSD 256GB"],
+    ])("rejects text missing required %s", (_field, content) => {
+        expect(parseLaptopPost(content)).toEqual({
             ok: false,
             fields: {},
             reason: "structure_not_recognized",
@@ -92,5 +105,22 @@ describe("parseLaptopPost", () => {
                     price: 3_800_000,
                 },
             });
+    });
+
+    it("rejects a desktop even when its fields look complete", () => {
+        expect(parseLaptopPost("HP PRODESK 400 G5 - CPU CORE I5 8500 - RAM 8GB - SSD 256GB - GIÁ 3 TRIỆU 8"))
+            .toEqual({ ok: false, fields: {}, reason: "structure_not_recognized" });
+    });
+
+    it("canonicalizes a hyphenated Core CPU model", () => {
+        expect(parseLaptopPost("HP PROBOOK 450G5 - CPU CORE I5-8250U - RAM 8GB - SSD 256GB - GIÁ 3 TRIỆU 8"))
+            .toMatchObject({ ok: true, fields: { cpu: "Core i5 8250U" } });
+    });
+
+    it("does not put the product name into notes", () => {
+        const result = parseLaptopPost(MACBOOK_AIR_13_3_2018);
+
+        expect(result).toMatchObject({ ok: true, fields: { productName: "MacBook Air 13.3 2018" } });
+        if (result.ok) expect(result.fields.notes).toBeUndefined();
     });
 });
