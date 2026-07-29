@@ -142,6 +142,8 @@ class Zalo {
         const jar = new toughCookie.CookieJar();
         for (const each of cookieArr) {
             try {
+                if (["deleted", "expired"].includes(each.value.trim().toLowerCase()))
+                    continue;
                 const domain = each.domain.replace(/^\./u, "").toLowerCase();
                 const parsed = toughCookie.Cookie.fromJSON(Object.assign(Object.assign({}, each), { domain, key: each.key || each.name }));
                 if (parsed)

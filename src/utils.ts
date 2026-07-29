@@ -293,13 +293,23 @@ export async function request(ctx: ContextBase, url: string, options?: RequestIn
     };
 
     const response = await ctx.options.polyfill(url, _options);
-    const setCookieRaw = response.headers.get("set-cookie");
-    if (setCookieRaw && !raw) {
-        const splitCookies = setCookieRaw.split(", ");
+    const responseHeaders = response.headers as Headers & { getSetCookie?: () => string[] };
+    const setCookies = responseHeaders.getSetCookie?.() ??
+        (response.headers.get("set-cookie")?.split(", ") ?? []);
+    if (setCookies.length && !raw) {
+        const splitCookies = setCookies;
         for (const cookie of splitCookies) {
             const parsed = toughCookie.Cookie.parse(cookie);
             try {
-                if (parsed) await ctx.cookie.setCookie(parsed, resolveCookieOrigin(parsed, origin));
+                if (parsed && isCookieTombstone(parsed)) {
+                    await ctx.cookie.removeCookie(
+                        parsed.domain?.replace(/^\./u, "") ?? new URL(origin).hostname,
+                        parsed.path ?? "/",
+                        parsed.key,
+                    );
+                } else if (parsed) {
+                    await ctx.cookie.setCookie(parsed, resolveCookieOrigin(parsed, origin));
+                }
             } catch (error: unknown) {
                 logger(ctx).error(error);
             }
@@ -334,6 +344,9 @@ const resolveCookieOrigin = (cookie: toughCookie.Cookie, responseOrigin: string)
 const isZaloCookieDomain = (domain: string): boolean =>
     ["zalo.me", "zaloapp.com", "zalo.cx", "zalo.gg"]
         .some((root) => domain === root || domain.endsWith(`.${root}`));
+
+const isCookieTombstone = (cookie: toughCookie.Cookie): boolean =>
+    ["deleted", "expired"].includes(cookie.value.trim().toLowerCase());
 
 export async function getImageMetaData(filePath: string) {
     const fileData = await fs.promises.readFile(filePath);

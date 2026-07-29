@@ -103,27 +103,30 @@ export class ZaloAdapter implements ZaloProductAdapter {
     }
 
     async beginQrLogin(onQr: (event: { image?: string; state: string }) => void): Promise<void> {
-        let callbackChain = Promise.resolve();
-        const login = this.login.loginQR({}, (event) => {
-            callbackChain = callbackChain.then(async () => {
-            if (event.type === QR_EVENT.generated) {
-                this.state = "waiting_for_scan";
-                const data = asRecord(event.data);
-                onQr({ image: stringValue(data?.image), state: this.state });
-            } else if (event.type === QR_EVENT.scanned) {
-                this.state = "waiting_for_confirmation";
-                onQr({ state: this.state });
-            } else if (event.type === QR_EVENT.loginInfo) {
-                const credentials = event.data as ZaloCredentials;
-                await this.persistCredentials(credentials);
-            }
+        let credentials: ZaloCredentials | undefined;
+        try {
+            this.api = await this.login.loginQR({}, (event) => {
+                if (event.type === QR_EVENT.generated) {
+                    this.state = "waiting_for_scan";
+                    const data = asRecord(event.data);
+                    onQr({ image: stringValue(data?.image), state: this.state });
+                } else if (event.type === QR_EVENT.scanned) {
+                    this.state = "waiting_for_confirmation";
+                    onQr({ state: this.state });
+                } else if (event.type === QR_EVENT.loginInfo) {
+                    credentials = event.data as ZaloCredentials;
+                }
             });
-            return callbackChain;
-        });
-        this.api = await login;
-        await callbackChain;
-        this.state = "connected";
-        onQr({ state: this.state });
+            if (!credentials) throw new Error("Zalo QR login completed without credentials");
+            await this.persistCredentials(credentials);
+            this.state = "connected";
+            onQr({ state: this.state });
+        } catch (error) {
+            this.api = null;
+            this.state = "disconnected";
+            this.report("qr_login_failed", error);
+            throw error;
+        }
     }
 
     async restoreSession(): Promise<boolean> {
