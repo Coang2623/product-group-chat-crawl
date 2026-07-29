@@ -299,7 +299,7 @@ export async function request(ctx: ContextBase, url: string, options?: RequestIn
         for (const cookie of splitCookies) {
             const parsed = toughCookie.Cookie.parse(cookie);
             try {
-                if (parsed) await ctx.cookie.setCookie(parsed, origin);
+                if (parsed) await ctx.cookie.setCookie(parsed, resolveCookieOrigin(parsed, origin));
             } catch (error: unknown) {
                 logger(ctx).error(error);
             }
@@ -319,6 +319,17 @@ export async function request(ctx: ContextBase, url: string, options?: RequestIn
 
     return response;
 }
+
+const resolveCookieOrigin = (cookie: toughCookie.Cookie, responseOrigin: string): string => {
+    const cookieDomain = cookie.domain?.replace(/^\./u, "").toLowerCase();
+    if (!cookieDomain) return responseOrigin;
+    const responseHost = new URL(responseOrigin).hostname.toLowerCase();
+    if (responseHost === cookieDomain || responseHost.endsWith(`.${cookieDomain}`)) return responseOrigin;
+    if (cookieDomain === "zalo.me" || cookieDomain.endsWith(".zalo.me")) {
+        return `https://${cookieDomain}`;
+    }
+    return responseOrigin;
+};
 
 export async function getImageMetaData(filePath: string) {
     const fileData = await fs.promises.readFile(filePath);

@@ -94,6 +94,20 @@ export function App({ api }: { api: ProductMonitorApi }) {
         }
     }, [api]);
 
+    useEffect(() => {
+        if (connection === "connected") return;
+        const timer = window.setInterval(() => {
+            void api.getStatus().then((status) => {
+                if (status.connection !== "connected") return;
+                setConnection("connected");
+                setActiveGroupId(status.activeGroupId);
+                setExcel(status.excel);
+                void loadConnectedWorkspace(status.activeGroupId);
+            }).catch(() => undefined);
+        }, 1_500);
+        return () => window.clearInterval(timer);
+    }, [api, connection]);
+
     const visibleProducts = useMemo(() => {
         const query = search.trim().toLocaleLowerCase("vi");
         const minimum = minPrice ? Number(minPrice) : undefined;

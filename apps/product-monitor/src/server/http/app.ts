@@ -63,6 +63,7 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
     const { repository, coordinator, excelWorker, zalo } = dependencies;
     const events = dependencies.events ?? new SseHub();
     const app = express();
+    let qrLoginInFlight: Promise<void> | null = null;
     app.disable("x-powered-by");
     app.use(express.json({ limit: "64kb" }));
 
@@ -71,15 +72,19 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
     }));
 
     app.post("/api/auth/qr", (_request, response) => {
-        void zalo.beginQrLogin((event) => {
-            events.publish({ type: "auth.qr", ...event });
-        }).then(() => {
-            return zalo.start();
-        }).then(() => {
-            events.publish({ type: "connection.status", state: "connected" });
-        }).catch(() => {
-            events.publish({ type: "connection.status", state: "disconnected" });
-        });
+        if (!qrLoginInFlight) {
+            qrLoginInFlight = zalo.beginQrLogin((event) => {
+                events.publish({ type: "auth.qr", ...event });
+            }).then(() => {
+                return zalo.start();
+            }).then(() => {
+                events.publish({ type: "connection.status", state: "connected" });
+            }).catch(() => {
+                events.publish({ type: "connection.status", state: "disconnected" });
+            }).finally(() => {
+                qrLoginInFlight = null;
+            });
+        }
         response.status(202).json({ state: "starting" });
     });
 

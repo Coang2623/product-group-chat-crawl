@@ -269,7 +269,7 @@ async function request(ctx, url, options, raw = false) {
             const parsed = toughCookie.Cookie.parse(cookie);
             try {
                 if (parsed)
-                    await ctx.cookie.setCookie(parsed, origin);
+                    await ctx.cookie.setCookie(parsed, resolveCookieOrigin(parsed, origin));
             }
             catch (error) {
                 logger(ctx).error(error);
@@ -288,6 +288,19 @@ async function request(ctx, url, options, raw = false) {
     }
     return response;
 }
+const resolveCookieOrigin = (cookie, responseOrigin) => {
+    var _a;
+    const cookieDomain = (_a = cookie.domain) === null || _a === void 0 ? void 0 : _a.replace(/^\./u, "").toLowerCase();
+    if (!cookieDomain)
+        return responseOrigin;
+    const responseHost = new URL(responseOrigin).hostname.toLowerCase();
+    if (responseHost === cookieDomain || responseHost.endsWith(`.${cookieDomain}`))
+        return responseOrigin;
+    if (cookieDomain === "zalo.me" || cookieDomain.endsWith(".zalo.me")) {
+        return `https://${cookieDomain}`;
+    }
+    return responseOrigin;
+};
 async function getImageMetaData(filePath) {
     const fileData = await fs.promises.readFile(filePath);
     const imageData = await sharp(fileData).metadata();
