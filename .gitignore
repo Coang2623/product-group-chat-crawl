@@ -142,6 +142,7 @@ credentials.json
 /.dev
 .worktrees/
 test/**/*.test.*
+.superpowers/
 
 # Project specific - files không cần cho end users
 examples/
