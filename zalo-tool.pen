@@ -15977,6 +15977,3350 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "PGv2G",
+      "x": 9120,
+      "y": 0,
+      "name": "Zalo Monitor / Product Mapping",
+      "clip": true,
+      "width": 1440,
+      "height": 960,
+      "fill": "$bg",
+      "children": [
+        {
+          "type": "frame",
+          "id": "xBjpB",
+          "name": "Sidebar",
+          "width": 248,
+          "height": "fill_container",
+          "fill": "#0B1B33",
+          "layout": "vertical",
+          "gap": 22,
+          "padding": [
+            24,
+            18
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "BJPei",
+              "name": "Brand",
+              "width": "fill_container",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "nqiiJ",
+                  "name": "Zalo Logo",
+                  "width": 38,
+                  "height": 38,
+                  "fill": "$zalo-blue",
+                  "cornerRadius": 12,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "gYa61",
+                      "name": "Logo Text",
+                      "fill": "#FFFFFF",
+                      "content": "Z",
+                      "fontFamily": "$font",
+                      "fontSize": 20,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "M95RXc",
+                  "name": "Brand Text",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "VXXt8",
+                      "name": "Product Name",
+                      "fill": "#FFFFFF",
+                      "content": "Zalo Monitor",
+                      "fontFamily": "$font",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jOP2B",
+                      "name": "Product Mode",
+                      "fill": "#91A1BA",
+                      "content": "Read-only workspace",
+                      "fontFamily": "$font",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "jiwY7",
+              "name": "Connection Status",
+              "width": "fill_container",
+              "fill": "#112A4A",
+              "cornerRadius": 10,
+              "gap": 8,
+              "padding": [
+                10,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "zhsKe",
+                  "name": "Live Indicator",
+                  "fill": "$success",
+                  "width": 8,
+                  "height": 8
+                },
+                {
+                  "type": "text",
+                  "id": "mwP1Y",
+                  "name": "Connection Label",
+                  "fill": "#DCEAFF",
+                  "content": "Đang theo dõi thời gian thực",
+                  "fontFamily": "$font",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aFG3q",
+              "name": "Navigation",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "fDF1Y",
+                  "name": "Nav / Tổng quan",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "K4l03K",
+                      "name": "Tổng quan Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "layout-dashboard",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "G7dd5",
+                      "name": "Tổng quan Label",
+                      "fill": "#C5D0E0",
+                      "content": "Tổng quan",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "g0hgm",
+                  "name": "Nav / Tin nhắn",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "v76nFD",
+                      "name": "Tin nhắn Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "messages-square",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "fvgC3",
+                      "name": "Tin nhắn Label",
+                      "fill": "#C5D0E0",
+                      "content": "Tin nhắn",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "y6auY",
+                  "name": "Nav / Sản phẩm",
+                  "width": "fill_container",
+                  "fill": "$zalo-blue",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "ZXnpm",
+                      "name": "Sản phẩm Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "package-search",
+                      "library": "lucide",
+                      "fill": "#FFFFFF"
+                    },
+                    {
+                      "type": "text",
+                      "id": "pLzqM",
+                      "name": "Sản phẩm Label",
+                      "fill": "#FFFFFF",
+                      "content": "Sản phẩm",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ktv3T",
+                  "name": "Nav / Nhóm Zalo",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "j4YCu",
+                      "name": "Nhóm Zalo Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "users",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "QO0Xg",
+                      "name": "Nhóm Zalo Label",
+                      "fill": "#C5D0E0",
+                      "content": "Nhóm Zalo",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "S0jCB",
+                  "name": "Nav / Bộ lọc",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "c6J77",
+                      "name": "Bộ lọc Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "list-filter",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "eTOUa",
+                      "name": "Bộ lọc Label",
+                      "fill": "#C5D0E0",
+                      "content": "Bộ lọc",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "lyfUv",
+                  "name": "Nav / Cảnh báo",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "aIR5r",
+                      "name": "Cảnh báo Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "bell-ring",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ytiOC",
+                      "name": "Cảnh báo Label",
+                      "fill": "#C5D0E0",
+                      "content": "Cảnh báo",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CD0xi",
+                  "name": "Nav / Nhật ký",
+                  "width": "fill_container",
+                  "fill": "#0B1B33",
+                  "cornerRadius": 9,
+                  "gap": 10,
+                  "padding": [
+                    11,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "czalO",
+                      "name": "Nhật ký Icon",
+                      "width": 18,
+                      "height": 18,
+                      "icon": "scroll-text",
+                      "library": "lucide",
+                      "fill": "#91A1BA"
+                    },
+                    {
+                      "type": "text",
+                      "id": "qKZ0B",
+                      "name": "Nhật ký Label",
+                      "fill": "#C5D0E0",
+                      "content": "Nhật ký",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "BtAFp",
+              "name": "Sidebar Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "wEiLe",
+              "name": "Privacy Notice",
+              "width": "fill_container",
+              "fill": "#112A4A",
+              "cornerRadius": 10,
+              "layout": "vertical",
+              "gap": 7,
+              "padding": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "bCQB2",
+                  "name": "Privacy Title",
+                  "fill": "#73A8FF",
+                  "content": "CHẾ ĐỘ CHỈ ĐỌC",
+                  "fontFamily": "$font",
+                  "fontSize": 10,
+                  "fontWeight": "700",
+                  "letterSpacing": 0.8
+                },
+                {
+                  "type": "text",
+                  "id": "YNKQb",
+                  "name": "Privacy Description",
+                  "fill": "#B9C7DA",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Không gửi, sửa hoặc xoá tin nhắn trên Zalo.",
+                  "lineHeight": 1.35,
+                  "fontFamily": "$font",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "I4u2f",
+          "name": "Main Workspace",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$bg",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "oV1Oq",
+              "name": "Top Header",
+              "width": "fill_container",
+              "height": 76,
+              "fill": "$surface",
+              "stroke": "$border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "padding": [
+                0,
+                28
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Y8aGqA",
+                  "name": "Header Copy",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "FDs4z",
+                      "name": "Page Title",
+                      "fill": "$text",
+                      "content": "Sản phẩm realtime",
+                      "fontFamily": "$font",
+                      "fontSize": 21,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZIgJo",
+                      "name": "Page Subtitle",
+                      "fill": "$muted",
+                      "content": "Laptop được map tự động từ nhóm Kinh doanh miền Nam",
+                      "fontFamily": "$font",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HHVO7",
+                  "name": "Header Actions",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "IaM9q",
+                      "name": "Sync Status",
+                      "fill": "#EAF8F2",
+                      "cornerRadius": 9,
+                      "gap": 8,
+                      "padding": [
+                        9,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "j7qMBD",
+                          "name": "Sync Icon",
+                          "width": 15,
+                          "height": 15,
+                          "icon": "radio",
+                          "library": "lucide",
+                          "fill": "$success"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Q3312v",
+                          "name": "Sync Text",
+                          "fill": "#087A4D",
+                          "content": "Listener · Đã kết nối",
+                          "fontFamily": "$font",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j832i",
+                      "name": "User Avatar",
+                      "width": 36,
+                      "height": 36,
+                      "fill": "#DCEAFF",
+                      "cornerRadius": 18,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "o7ued",
+                          "name": "Avatar Initials",
+                          "fill": "$zalo-blue",
+                          "content": "TA",
+                          "fontFamily": "$font",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "gPZMO",
+              "name": "Product Mapping Content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 14,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "k98Gs",
+                  "name": "Active Group Context",
+                  "width": "fill_container",
+                  "height": 58,
+                  "fill": "$surface",
+                  "cornerRadius": 10,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "l9JZBh",
+                      "name": "Group Identity",
+                      "gap": 11,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "woOGD",
+                          "name": "Group Avatar",
+                          "width": 34,
+                          "height": 34,
+                          "fill": "#DCEAFF",
+                          "cornerRadius": 17,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "LyeQV",
+                              "name": "Group Initials",
+                              "fill": "$zalo-blue",
+                              "content": "KD",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "g3Bbn",
+                          "name": "Group Copy",
+                          "layout": "vertical",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "mmc62",
+                              "name": "Group Name",
+                              "fill": "$text",
+                              "content": "Kinh doanh miền Nam",
+                              "fontFamily": "$font",
+                              "fontSize": 14,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "wjRQS",
+                              "name": "Group Meta",
+                              "fill": "$muted",
+                              "content": "47 thành viên · Admin: Tracie",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "CA8VN",
+                      "name": "Pipeline Status",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "GQLGi",
+                          "name": "Listener Badge",
+                          "fill": "#EAF8F2",
+                          "cornerRadius": 8,
+                          "gap": 6,
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "HusOa",
+                              "name": "Listener Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "radio",
+                              "library": "lucide",
+                              "fill": "$success"
+                            },
+                            {
+                              "type": "text",
+                              "id": "k6xDz",
+                              "name": "Listener Text",
+                              "fill": "#087A4D",
+                              "content": "Đang lắng nghe",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "t44GuM",
+                          "name": "Excel Pending Badge",
+                          "fill": "#FFF4D6",
+                          "cornerRadius": 8,
+                          "gap": 6,
+                          "padding": [
+                            8,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "z8xqK",
+                              "name": "Excel Pending Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "file-spreadsheet",
+                              "library": "lucide",
+                              "fill": "#B76E00"
+                            },
+                            {
+                              "type": "text",
+                              "id": "S97be",
+                              "name": "Excel Pending Text",
+                              "fill": "#8A5300",
+                              "content": "6 thay đổi đang chờ",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "wqm9m",
+                  "name": "Excel Lock Banner",
+                  "width": "fill_container",
+                  "height": 46,
+                  "fill": "#FFF8E7",
+                  "cornerRadius": 9,
+                  "stroke": "#F2C66D",
+                  "strokeWidth": 1,
+                  "padding": [
+                    0,
+                    14
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "tPyxe",
+                      "name": "Excel Lock Copy",
+                      "gap": 9,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "WCnYp",
+                          "name": "Excel Lock Icon",
+                          "width": 17,
+                          "height": 17,
+                          "icon": "triangle-alert",
+                          "library": "lucide",
+                          "fill": "#B76E00"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rkBec",
+                          "name": "Excel Lock Texts",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "w6dYV",
+                              "name": "Excel Lock Title",
+                              "fill": "#754600",
+                              "content": "Excel đang mở",
+                              "fontFamily": "$font",
+                              "fontSize": 12,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "text",
+                              "id": "LnUEH",
+                              "name": "Excel Lock Detail",
+                              "fill": "#8A6114",
+                              "content": "Dữ liệu realtime vẫn an toàn · 6 thay đổi sẽ tự đồng bộ khi đóng file",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tgf4P",
+                      "name": "Sync Now Button",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 7,
+                      "stroke": "#D8A843",
+                      "strokeWidth": 1,
+                      "gap": 6,
+                      "padding": [
+                        7,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "QwLg3",
+                          "name": "Sync Now Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "refresh-cw",
+                          "library": "lucide",
+                          "fill": "#8A5300"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t9pmn",
+                          "name": "Sync Now Label",
+                          "fill": "#754600",
+                          "content": "Đồng bộ lại ngay",
+                          "fontFamily": "$font",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "k4eUD5",
+                  "name": "Product Filters",
+                  "width": "fill_container",
+                  "height": 44,
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "ztxEm",
+                      "name": "Quick Filters",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "l6au2M",
+                          "name": "Filter / Tất cả",
+                          "fill": "#DCEAFF",
+                          "cornerRadius": 7,
+                          "stroke": "#A8CBFF",
+                          "strokeWidth": 1,
+                          "padding": [
+                            7,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MufXZ",
+                              "name": "Tất cả Label",
+                              "fill": "$zalo-blue",
+                              "content": "Tất cả",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "s8GKjE",
+                          "name": "Filter / Đang nhận ảnh",
+                          "fill": "$surface",
+                          "cornerRadius": 7,
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": [
+                            7,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "n1mQqf",
+                              "name": "Đang nhận ảnh Label",
+                              "fill": "$muted",
+                              "content": "Đang nhận ảnh",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "aHE34",
+                          "name": "Filter / Cần kiểm tra",
+                          "fill": "$surface",
+                          "cornerRadius": 7,
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": [
+                            7,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Rdjty",
+                              "name": "Cần kiểm tra Label",
+                              "fill": "$muted",
+                              "content": "Cần kiểm tra",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "DKznd",
+                          "name": "Filter / Chưa đồng bộ Excel",
+                          "fill": "$surface",
+                          "cornerRadius": 7,
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "padding": [
+                            7,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Yziyi",
+                              "name": "Chưa đồng bộ Excel Label",
+                              "fill": "$muted",
+                              "content": "Chưa đồng bộ Excel",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NsDT5",
+                      "name": "Filter Actions",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "X1Oygs",
+                          "name": "Product Search",
+                          "width": 210,
+                          "height": 34,
+                          "fill": "$surface",
+                          "cornerRadius": 7,
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 7,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "qaMPn",
+                              "name": "Search Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "search",
+                              "library": "lucide",
+                              "fill": "$muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "aq2Fm",
+                              "name": "Search Placeholder",
+                              "fill": "$muted",
+                              "content": "Tên, CPU, RAM, SSD...",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "YEU4d",
+                          "name": "Price Filter",
+                          "height": 34,
+                          "fill": "$surface",
+                          "cornerRadius": 7,
+                          "stroke": "$border",
+                          "strokeWidth": 1,
+                          "gap": 7,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "vKJ5N",
+                              "name": "Price Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "sliders-horizontal",
+                              "library": "lucide",
+                              "fill": "$muted"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Wckpj",
+                              "name": "Price Label",
+                              "fill": "$text",
+                              "content": "Khoảng giá",
+                              "fontFamily": "$font",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dxmef",
+                  "name": "Product Workspace",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "gap": 14,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "rUqNs",
+                      "name": "Realtime Product Table Panel",
+                      "clip": true,
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "o9Sk2",
+                          "name": "Table Toolbar",
+                          "width": "fill_container",
+                          "height": 48,
+                          "stroke": "$border",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "XtB6K",
+                              "name": "Table Toolbar Copy",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "zSxHt",
+                                  "name": "Product Count",
+                                  "fill": "$text",
+                                  "content": "24 sản phẩm",
+                                  "fontFamily": "$font",
+                                  "fontSize": 12,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ZDowN",
+                                  "name": "Product Count Meta",
+                                  "fill": "$muted",
+                                  "content": "· cập nhật tại chỗ",
+                                  "fontFamily": "$font",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "bqsw0",
+                              "name": "Sort Control",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "yNvW2",
+                                  "name": "Sort Label",
+                                  "fill": "$muted",
+                                  "content": "Đang nhận ảnh trước",
+                                  "fontFamily": "$font",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "TRi0s",
+                                  "name": "Sort Icon",
+                                  "width": 13,
+                                  "height": 13,
+                                  "icon": "arrow-down-up",
+                                  "library": "lucide",
+                                  "fill": "$muted"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "r8PKX",
+                          "name": "Product Data Table",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Sid9d",
+                              "name": "Product Table Header",
+                              "width": "fill_container",
+                              "height": 38,
+                              "fill": "#F7F9FC",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "pP1so",
+                                  "name": "Header Cell / ẢNH",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "t8mRDp",
+                                      "name": "Header ẢNH",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "ẢNH",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "p7vIL",
+                                  "name": "Header Cell / THỜI GIAN",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "nUidN",
+                                      "name": "Header THỜI GIAN",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "THỜI GIAN",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "XDxfw",
+                                  "name": "Header Cell / SẢN PHẨM",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "k1N7l",
+                                      "name": "Header SẢN PHẨM",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "SẢN PHẨM",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zfnWe",
+                                  "name": "Header Cell / CẤU HÌNH",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "t5WVk",
+                                      "name": "Header CẤU HÌNH",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "CẤU HÌNH",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "E9L1DB",
+                                  "name": "Header Cell / GIÁ",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ZQyzz",
+                                      "name": "Header GIÁ",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "GIÁ",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "FYDOR",
+                                  "name": "Header Cell / ẢNH / TYM",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "IbJ3O",
+                                      "name": "Header ẢNH / TYM",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "ẢNH / TYM",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Vvc7t",
+                                  "name": "Header Cell / XỬ LÝ",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "kKgoW",
+                                      "name": "Header XỬ LÝ",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "XỬ LÝ",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zzUOH",
+                                  "name": "Header Cell / EXCEL",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "m5dWm",
+                                      "name": "Header EXCEL",
+                                      "fill": "$muted",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "EXCEL",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "vBJBO",
+                              "name": "Product Row / HP ZBook 15 G3",
+                              "width": "fill_container",
+                              "height": 82,
+                              "fill": "#F4F8FF",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "RIWcf",
+                                  "name": "Cover Cell / HP ZBook 15 G3",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "ujDuw",
+                                      "name": "Cover / HP ZBook 15 G3",
+                                      "width": 36,
+                                      "height": 36,
+                                      "fill": "#DCEAFF",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "gyAIf",
+                                          "name": "Laptop Icon / HP ZBook 15 G3",
+                                          "width": 18,
+                                          "height": 18,
+                                          "icon": "laptop",
+                                          "library": "lucide",
+                                          "fill": "$zalo-blue"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "HZS6O",
+                                  "name": "Time Cell / HP ZBook 15 G3",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "padding": [
+                                    20,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "oIBgY",
+                                      "name": "Time / HP ZBook 15 G3",
+                                      "fill": "$text",
+                                      "content": "10:45",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "gIFJc",
+                                      "name": "Date / HP ZBook 15 G3",
+                                      "fill": "$muted",
+                                      "content": "29/07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "aEKNG",
+                                  "name": "Product Cell / HP ZBook 15 G3",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "padding": [
+                                    18,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "nFKvo",
+                                      "name": "Product Name / HP ZBook 15 G3",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "HP ZBook 15 G3",
+                                      "fontFamily": "$font",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "HazLT",
+                                      "name": "Message ID / HP ZBook 15 G3",
+                                      "fill": "$muted",
+                                      "content": "msg_192…",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "LKs4h",
+                                  "name": "Config Cell / HP ZBook 15 G3",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    17,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "YmZ6X",
+                                      "name": "Config / HP ZBook 15 G3",
+                                      "fill": "#45536A",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "i7 6820HQ · 16GB\nSSD 512GB · Quadro",
+                                      "lineHeight": 1.45,
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "V4i2Qo",
+                                  "name": "Price Cell / HP ZBook 15 G3",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "RfWp0",
+                                      "name": "Price / HP ZBook 15 G3",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "5.900.000",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tzYWI",
+                                  "name": "Social Cell / HP ZBook 15 G3",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "hiuXB",
+                                      "name": "Social / HP ZBook 15 G3",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "5 ảnh · 12 tym",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "dLEES",
+                                  "name": "Status Cell / HP ZBook 15 G3",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "ZwKsL",
+                                      "name": "Status Badge / HP ZBook 15 G3",
+                                      "fill": "#E7F0FF",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "l68Smg",
+                                          "name": "Status Text / HP ZBook 15 G3",
+                                          "fill": "#0053CC",
+                                          "content": "ĐANG NHẬN ẢNH",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sWLyN",
+                                  "name": "Excel Cell / HP ZBook 15 G3",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "QrLgg",
+                                      "name": "Excel Badge / HP ZBook 15 G3",
+                                      "fill": "#FFF4D6",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "MZBkZ",
+                                          "name": "Excel Text / HP ZBook 15 G3",
+                                          "fill": "#8A5300",
+                                          "content": "CHỜ EXCEL",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "GEmv7",
+                              "name": "Product Row / MacBook Air M1",
+                              "width": "fill_container",
+                              "height": 82,
+                              "fill": "#FFFFFF",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "pvLF9",
+                                  "name": "Cover Cell / MacBook Air M1",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Fxx2s",
+                                      "name": "Cover / MacBook Air M1",
+                                      "width": 36,
+                                      "height": 36,
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "XChtm",
+                                          "name": "Laptop Icon / MacBook Air M1",
+                                          "width": 18,
+                                          "height": 18,
+                                          "icon": "laptop",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "a39WZi",
+                                  "name": "Time Cell / MacBook Air M1",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "padding": [
+                                    20,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "yfyK5",
+                                      "name": "Time / MacBook Air M1",
+                                      "fill": "$text",
+                                      "content": "10:31",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "ZnTrg",
+                                      "name": "Date / MacBook Air M1",
+                                      "fill": "$muted",
+                                      "content": "29/07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YoY89",
+                                  "name": "Product Cell / MacBook Air M1",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "padding": [
+                                    18,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ECg7f",
+                                      "name": "Product Name / MacBook Air M1",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "MacBook Air M1",
+                                      "fontFamily": "$font",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "EAYoW",
+                                      "name": "Message ID / MacBook Air M1",
+                                      "fill": "$muted",
+                                      "content": "msg_292…",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PfWYf",
+                                  "name": "Config Cell / MacBook Air M1",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    17,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "y14jlN",
+                                      "name": "Config / MacBook Air M1",
+                                      "fill": "#45536A",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Apple M1 · 8GB\nSSD 256GB",
+                                      "lineHeight": 1.45,
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "bTWEc",
+                                  "name": "Price Cell / MacBook Air M1",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Sn9ly",
+                                      "name": "Price / MacBook Air M1",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "7.000.000",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sBBKm",
+                                  "name": "Social Cell / MacBook Air M1",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "aQjcX",
+                                      "name": "Social / MacBook Air M1",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "3 ảnh · 8 tym",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "H6G2JM",
+                                  "name": "Status Cell / MacBook Air M1",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "AjXLc",
+                                      "name": "Status Badge / MacBook Air M1",
+                                      "fill": "#FDECEC",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "y32yy",
+                                          "name": "Status Text / MacBook Air M1",
+                                          "fill": "#B4232A",
+                                          "content": "CẦN KIỂM TRA",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "gKTPX",
+                                  "name": "Excel Cell / MacBook Air M1",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Knp6X",
+                                      "name": "Excel Badge / MacBook Air M1",
+                                      "fill": "#FFF4D6",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "cyeMC",
+                                          "name": "Excel Text / MacBook Air M1",
+                                          "fill": "#8A5300",
+                                          "content": "CHỜ EXCEL",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "SYH4Q",
+                              "name": "Product Row / HP ProBook 450 G5",
+                              "width": "fill_container",
+                              "height": 82,
+                              "fill": "#FFFFFF",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "H2YuZ",
+                                  "name": "Cover Cell / HP ProBook 450 G5",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Dia8U",
+                                      "name": "Cover / HP ProBook 450 G5",
+                                      "width": 36,
+                                      "height": 36,
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "DKLMy",
+                                          "name": "Laptop Icon / HP ProBook 450 G5",
+                                          "width": 18,
+                                          "height": 18,
+                                          "icon": "laptop",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fsZEU",
+                                  "name": "Time Cell / HP ProBook 450 G5",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "padding": [
+                                    20,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "X5B9au",
+                                      "name": "Time / HP ProBook 450 G5",
+                                      "fill": "$text",
+                                      "content": "09:58",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "d57ikV",
+                                      "name": "Date / HP ProBook 450 G5",
+                                      "fill": "$muted",
+                                      "content": "29/07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "XY56p",
+                                  "name": "Product Cell / HP ProBook 450 G5",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "padding": [
+                                    18,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Jn6Md",
+                                      "name": "Product Name / HP ProBook 450 G5",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "HP ProBook 450 G5",
+                                      "fontFamily": "$font",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "S7jteY",
+                                      "name": "Message ID / HP ProBook 450 G5",
+                                      "fill": "$muted",
+                                      "content": "msg_392…",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "s2vE7h",
+                                  "name": "Config Cell / HP ProBook 450 G5",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    17,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "iFe9P",
+                                      "name": "Config / HP ProBook 450 G5",
+                                      "fill": "#45536A",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "i5 8250U · 8GB\nSSD 256GB · FHD",
+                                      "lineHeight": 1.45,
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Y3VdEf",
+                                  "name": "Price Cell / HP ProBook 450 G5",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "iZKwo",
+                                      "name": "Price / HP ProBook 450 G5",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "3.800.000",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "E4rgqA",
+                                  "name": "Social Cell / HP ProBook 450 G5",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gwgVZ",
+                                      "name": "Social / HP ProBook 450 G5",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "4 ảnh · 5 tym",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "nmuwt",
+                                  "name": "Status Cell / HP ProBook 450 G5",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "od44y",
+                                      "name": "Status Badge / HP ProBook 450 G5",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "B9PAdN",
+                                          "name": "Status Text / HP ProBook 450 G5",
+                                          "fill": "#087A4D",
+                                          "content": "HOÀN TẤT",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fJOkO",
+                                  "name": "Excel Cell / HP ProBook 450 G5",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "MfP9g",
+                                      "name": "Excel Badge / HP ProBook 450 G5",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "IaLh9",
+                                          "name": "Excel Text / HP ProBook 450 G5",
+                                          "fill": "#087A4D",
+                                          "content": "ĐÃ SYNC",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Vaoiv",
+                              "name": "Product Row / Dell Latitude 7490",
+                              "width": "fill_container",
+                              "height": 82,
+                              "fill": "#FFFFFF",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "sH4lY",
+                                  "name": "Cover Cell / Dell Latitude 7490",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "ZB3XS",
+                                      "name": "Cover / Dell Latitude 7490",
+                                      "width": 36,
+                                      "height": 36,
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "D2HQLM",
+                                          "name": "Laptop Icon / Dell Latitude 7490",
+                                          "width": 18,
+                                          "height": 18,
+                                          "icon": "laptop",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "O3DRdk",
+                                  "name": "Time Cell / Dell Latitude 7490",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "padding": [
+                                    20,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "InDtd",
+                                      "name": "Time / Dell Latitude 7490",
+                                      "fill": "$text",
+                                      "content": "16:22",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "W4GOK",
+                                      "name": "Date / Dell Latitude 7490",
+                                      "fill": "$muted",
+                                      "content": "28/07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "nMrle",
+                                  "name": "Product Cell / Dell Latitude 7490",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "padding": [
+                                    18,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "QgbBd",
+                                      "name": "Product Name / Dell Latitude 7490",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Dell Latitude 7490",
+                                      "fontFamily": "$font",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Hhj57",
+                                      "name": "Message ID / Dell Latitude 7490",
+                                      "fill": "$muted",
+                                      "content": "msg_492…",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Lgexe",
+                                  "name": "Config Cell / Dell Latitude 7490",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    17,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "VvuFl",
+                                      "name": "Config / Dell Latitude 7490",
+                                      "fill": "#45536A",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "i7 8650U · 16GB\nSSD 512GB",
+                                      "lineHeight": 1.45,
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "w1GjT",
+                                  "name": "Price Cell / Dell Latitude 7490",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "SN0Vn",
+                                      "name": "Price / Dell Latitude 7490",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "4.600.000",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "iAdLv",
+                                  "name": "Social Cell / Dell Latitude 7490",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "Cavck",
+                                      "name": "Social / Dell Latitude 7490",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "6 ảnh · 19 tym",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "FVEk5",
+                                  "name": "Status Cell / Dell Latitude 7490",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "fVQRn",
+                                      "name": "Status Badge / Dell Latitude 7490",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "oxQ9G",
+                                          "name": "Status Text / Dell Latitude 7490",
+                                          "fill": "#087A4D",
+                                          "content": "HOÀN TẤT",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "kSXtW",
+                                  "name": "Excel Cell / Dell Latitude 7490",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "gQFyq",
+                                      "name": "Excel Badge / Dell Latitude 7490",
+                                      "fill": "#FFF4D6",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "YKktL",
+                                          "name": "Excel Text / Dell Latitude 7490",
+                                          "fill": "#8A5300",
+                                          "content": "BỊ KHÓA",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "xLrOx",
+                              "name": "Product Row / ThinkPad T480",
+                              "width": "fill_container",
+                              "height": 82,
+                              "fill": "#FFFFFF",
+                              "stroke": "$border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "AlixM",
+                                  "name": "Cover Cell / ThinkPad T480",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "UYPHA",
+                                      "name": "Cover / ThinkPad T480",
+                                      "width": 36,
+                                      "height": 36,
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "mCkE0",
+                                          "name": "Laptop Icon / ThinkPad T480",
+                                          "width": 18,
+                                          "height": 18,
+                                          "icon": "laptop",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KxDrs",
+                                  "name": "Time Cell / ThinkPad T480",
+                                  "width": 72,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 3,
+                                  "padding": [
+                                    20,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "BNp6J",
+                                      "name": "Time / ThinkPad T480",
+                                      "fill": "$text",
+                                      "content": "14:07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "awiOv",
+                                      "name": "Date / ThinkPad T480",
+                                      "fill": "$muted",
+                                      "content": "28/07",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "GV9nQ",
+                                  "name": "Product Cell / ThinkPad T480",
+                                  "width": 145,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 4,
+                                  "padding": [
+                                    18,
+                                    8
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "hhtDN",
+                                      "name": "Product Name / ThinkPad T480",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "ThinkPad T480",
+                                      "fontFamily": "$font",
+                                      "fontSize": 11,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "KK9uQ",
+                                      "name": "Message ID / ThinkPad T480",
+                                      "fill": "$muted",
+                                      "content": "msg_592…",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "koKIY",
+                                  "name": "Config Cell / ThinkPad T480",
+                                  "width": 160,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    17,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "yhiev",
+                                      "name": "Config / ThinkPad T480",
+                                      "fill": "#45536A",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "i5 8350U · 8GB\nSSD 256GB",
+                                      "lineHeight": 1.45,
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zATAu",
+                                  "name": "Price Cell / ThinkPad T480",
+                                  "width": 80,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "UlOBF",
+                                      "name": "Price / ThinkPad T480",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "4.200.000",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sTPi9",
+                                  "name": "Social Cell / ThinkPad T480",
+                                  "width": 84,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "s3iFO",
+                                      "name": "Social / ThinkPad T480",
+                                      "fill": "$text",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "4 ảnh · 7 tym",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "JM9UB",
+                                  "name": "Status Cell / ThinkPad T480",
+                                  "width": 110,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "C3UJp",
+                                      "name": "Status Badge / ThinkPad T480",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Pukj2",
+                                          "name": "Status Text / ThinkPad T480",
+                                          "fill": "#087A4D",
+                                          "content": "HOÀN TẤT",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cBO9b",
+                                  "name": "Excel Cell / ThinkPad T480",
+                                  "width": 85,
+                                  "height": "fill_container",
+                                  "padding": [
+                                    0,
+                                    7
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "P6IME1",
+                                      "name": "Excel Badge / ThinkPad T480",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        6,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "gZckG",
+                                          "name": "Excel Text / ThinkPad T480",
+                                          "fill": "#087A4D",
+                                          "content": "ĐÃ SYNC",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "slbPc",
+                      "name": "Product Detail Panel",
+                      "clip": true,
+                      "width": 332,
+                      "height": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "M9mUb1",
+                          "name": "Detail Header",
+                          "width": "fill_container",
+                          "height": 50,
+                          "stroke": "$border",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "xxooR",
+                              "name": "Detail Header Copy",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Kgx0U",
+                                  "name": "Detail Title",
+                                  "fill": "$text",
+                                  "content": "HP ZBook 15 G3",
+                                  "fontFamily": "$font",
+                                  "fontSize": 13,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "bbW01",
+                                  "name": "Detail Subtitle",
+                                  "fill": "$zalo-blue",
+                                  "content": "Đang nhận ảnh · cập nhật realtime",
+                                  "fontFamily": "$font",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "icon",
+                              "id": "WzeRC",
+                              "name": "Close Detail",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "x",
+                              "library": "lucide",
+                              "fill": "$muted"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ANt8P",
+                          "name": "Detail Body",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "layout": "vertical",
+                          "gap": 11,
+                          "padding": 14,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "l6EKxy",
+                              "name": "Product Gallery",
+                              "width": "fill_container",
+                              "height": 116,
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "vLbq8",
+                                  "name": "Gallery Hero",
+                                  "width": "fill_container",
+                                  "height": "fill_container",
+                                  "fill": "#0B1B33",
+                                  "cornerRadius": 8,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "miscN",
+                                      "name": "Gallery Laptop",
+                                      "width": 62,
+                                      "height": 62,
+                                      "icon": "laptop",
+                                      "library": "lucide",
+                                      "fill": "#CFE1FF"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "GxeHm",
+                                  "name": "Gallery Thumbnails",
+                                  "width": 54,
+                                  "height": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 6,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "rWIt6",
+                                      "name": "Gallery Thumbnail 1",
+                                      "width": "fill_container",
+                                      "height": "fill_container",
+                                      "fill": "#DCEAFF",
+                                      "cornerRadius": 6,
+                                      "stroke": "$zalo-blue",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "cm6jB",
+                                          "name": "Thumbnail Icon 1",
+                                          "width": 17,
+                                          "height": 17,
+                                          "icon": "image",
+                                          "library": "lucide",
+                                          "fill": "$zalo-blue"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Ig2Tx",
+                                      "name": "Gallery Thumbnail 2",
+                                      "width": "fill_container",
+                                      "height": "fill_container",
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "OD43y",
+                                          "name": "Thumbnail Icon 2",
+                                          "width": 17,
+                                          "height": 17,
+                                          "icon": "image",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "EqW7L",
+                                      "name": "Gallery Thumbnail 3",
+                                      "width": "fill_container",
+                                      "height": "fill_container",
+                                      "fill": "#EEF2F7",
+                                      "cornerRadius": 6,
+                                      "stroke": "$border",
+                                      "strokeWidth": 1,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon",
+                                          "id": "t4SQf",
+                                          "name": "Thumbnail Icon 3",
+                                          "width": 17,
+                                          "height": 17,
+                                          "icon": "image",
+                                          "library": "lucide",
+                                          "fill": "$muted"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "yMyJA",
+                              "name": "Mapped Data Section",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 7,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "TLQuZ",
+                                  "name": "Mapped Data Header",
+                                  "width": "fill_container",
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "FqtQA",
+                                      "name": "Mapped Data Title",
+                                      "fill": "$muted",
+                                      "content": "DỮ LIỆU ĐÃ MAP",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 8,
+                                      "fontWeight": "700"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "vTt4A",
+                                      "name": "Parser Badge",
+                                      "fill": "#EAF8F2",
+                                      "cornerRadius": 5,
+                                      "padding": [
+                                        5,
+                                        7
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "dFJ6j",
+                                          "name": "Parser Badge Text",
+                                          "fill": "#087A4D",
+                                          "content": "PARSER OK",
+                                          "fontFamily": "Geist Mono",
+                                          "fontSize": 7,
+                                          "fontWeight": "700"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UaeTZ",
+                                  "name": "Mapped Field / CPU",
+                                  "width": "fill_container",
+                                  "height": 27,
+                                  "stroke": "$border",
+                                  "strokeWidth": {
+                                    "bottom": 1
+                                  },
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "iZIok",
+                                      "name": "Mapped Label / CPU",
+                                      "fill": "$muted",
+                                      "content": "CPU",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "HJi2X",
+                                      "name": "Mapped Value / CPU",
+                                      "fill": "$text",
+                                      "content": "Core i7 6820HQ",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "IWN4j",
+                                  "name": "Mapped Field / RAM",
+                                  "width": "fill_container",
+                                  "height": 27,
+                                  "stroke": "$border",
+                                  "strokeWidth": {
+                                    "bottom": 1
+                                  },
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "u8Rq0v",
+                                      "name": "Mapped Label / RAM",
+                                      "fill": "$muted",
+                                      "content": "RAM",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "r4s5SD",
+                                      "name": "Mapped Value / RAM",
+                                      "fill": "$text",
+                                      "content": "16GB",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "DFL01",
+                                  "name": "Mapped Field / Ổ cứng",
+                                  "width": "fill_container",
+                                  "height": 27,
+                                  "stroke": "$border",
+                                  "strokeWidth": {
+                                    "bottom": 1
+                                  },
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "a3SPu",
+                                      "name": "Mapped Label / Ổ cứng",
+                                      "fill": "$muted",
+                                      "content": "Ổ cứng",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "H8rIW",
+                                      "name": "Mapped Value / Ổ cứng",
+                                      "fill": "$text",
+                                      "content": "SSD 512GB",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "D1Yym",
+                                  "name": "Mapped Field / GPU",
+                                  "width": "fill_container",
+                                  "height": 27,
+                                  "stroke": "$border",
+                                  "strokeWidth": {
+                                    "bottom": 1
+                                  },
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "HVOZ9",
+                                      "name": "Mapped Label / GPU",
+                                      "fill": "$muted",
+                                      "content": "GPU",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "SLVpp",
+                                      "name": "Mapped Value / GPU",
+                                      "fill": "$text",
+                                      "content": "Quadro M1000M",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "agSWF",
+                                  "name": "Mapped Field / Giá",
+                                  "width": "fill_container",
+                                  "height": 27,
+                                  "stroke": "$border",
+                                  "strokeWidth": {
+                                    "bottom": 1
+                                  },
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "QuOup",
+                                      "name": "Mapped Label / Giá",
+                                      "fill": "$muted",
+                                      "content": "Giá",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "NqzsU",
+                                      "name": "Mapped Value / Giá",
+                                      "fill": "$text",
+                                      "content": "5.900.000 ₫",
+                                      "fontFamily": "Geist Mono",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "PsDyP",
+                              "name": "Raw Content Section",
+                              "width": "fill_container",
+                              "fill": "#F7F9FC",
+                              "cornerRadius": 7,
+                              "layout": "vertical",
+                              "gap": 6,
+                              "padding": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "SzMnR",
+                                  "name": "Raw Content Title",
+                                  "fill": "$muted",
+                                  "content": "NỘI DUNG GỐC",
+                                  "fontFamily": "Geist Mono",
+                                  "fontSize": 8,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "eVgrD",
+                                  "name": "Raw Content",
+                                  "fill": "#45536A",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "HP ZBOOK 15 G3 - CORE I7 6820HQ - RAM 16GB - Ổ SSD 512GB - CARD QUADRO M1000M - GIÁ THU VỀ 5 TRIỆU 900",
+                                  "lineHeight": 1.4,
+                                  "fontFamily": "$font",
+                                  "fontSize": 9,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "uilHa",
+                              "name": "Sync History",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "cMPbx",
+                                  "name": "Sync History Title",
+                                  "fill": "$muted",
+                                  "content": "LỊCH SỬ ĐỒNG BỘ",
+                                  "fontFamily": "Geist Mono",
+                                  "fontSize": 8,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "uQQQu",
+                                  "name": "Sync History Row",
+                                  "width": "fill_container",
+                                  "gap": 7,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "j7ses",
+                                      "name": "History Clock",
+                                      "width": 13,
+                                      "height": 13,
+                                      "icon": "clock-3",
+                                      "library": "lucide",
+                                      "fill": "#B76E00"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "aRezA",
+                                      "name": "History Text",
+                                      "fill": "#754600",
+                                      "content": "10:45:13 · Chờ Excel (file đang mở)",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "V53o8d",
+                              "name": "Detail Actions",
+                              "width": "fill_container",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "JSK9I",
+                                  "name": "Open Media Folder",
+                                  "width": "fill_container",
+                                  "height": 36,
+                                  "fill": "$surface",
+                                  "cornerRadius": 7,
+                                  "stroke": "$border",
+                                  "strokeWidth": 1,
+                                  "gap": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "aI9FI",
+                                      "name": "Folder Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "folder-open",
+                                      "library": "lucide",
+                                      "fill": "$muted"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "yyRbE",
+                                      "name": "Folder Label",
+                                      "fill": "$text",
+                                      "content": "Mở thư mục",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "ShBcv",
+                                  "name": "Complete Product Button",
+                                  "width": "fill_container",
+                                  "height": 36,
+                                  "fill": "$zalo-blue",
+                                  "cornerRadius": 7,
+                                  "gap": 6,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "d3KaX",
+                                      "name": "Complete Icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "check",
+                                      "library": "lucide",
+                                      "fill": "#FFFFFF"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "eBQqH",
+                                      "name": "Complete Label",
+                                      "fill": "#FFFFFF",
+                                      "content": "Kết thúc nhận ảnh",
+                                      "fontFamily": "$font",
+                                      "fontSize": 9,
+                                      "fontWeight": "700"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {
