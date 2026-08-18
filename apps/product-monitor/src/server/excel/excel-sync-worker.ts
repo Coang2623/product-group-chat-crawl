@@ -77,9 +77,7 @@ const productStatus = (status: ProductRecord["status"]): string => ({
 
 const saleStatus = (status: ProductRecord["saleStatus"]): string => ({
     available: "Còn hàng",
-    reserved: "Có cọc",
-    partially_sold: "Đã bán một phần",
-    sold: "Đã bán",
+    closed: "Đã chốt",
 })[status];
 
 export class ExcelSyncWorker {

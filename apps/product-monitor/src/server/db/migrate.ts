@@ -113,5 +113,13 @@ export const migrate = (database: Database.Database): void => {
                 database.exec(`ALTER TABLE products ADD COLUMN ${name} ${definition}`);
             }
         }
+        database.exec(`
+            UPDATE products
+            SET sale_status = 'closed'
+            WHERE sale_status IN ('reserved', 'partially_sold', 'sold');
+            UPDATE product_sale_events
+            SET status = 'closed'
+            WHERE status IN ('reserved', 'partially_sold', 'sold');
+        `);
     })();
 };

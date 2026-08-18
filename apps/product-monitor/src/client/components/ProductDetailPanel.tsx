@@ -82,9 +82,7 @@ const statusLabel = (status: string) => ({
 }[status] ?? status);
 const saleLabel = (status: string) => ({
     available: "Còn hàng",
-    reserved: "Đã có cọc / đã chốt",
-    partially_sold: "Đã bán một phần, vẫn còn hàng",
-    sold: "Đã bán",
+    closed: "Đã chốt",
 }[status] ?? status);
 const excelLabel = (status: string) => ({
     pending: "Thay đổi đang chờ ghi vào workbook.",

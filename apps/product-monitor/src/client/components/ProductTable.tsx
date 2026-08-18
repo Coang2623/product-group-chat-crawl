@@ -71,9 +71,7 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
 function SaleBadge({ status }: { status: ProductRecord["saleStatus"] }) {
     const label = {
         available: "Còn hàng",
-        reserved: "Có cọc",
-        partially_sold: "Còn một phần",
-        sold: "Đã bán",
+        closed: "Đã chốt",
     }[status];
     return <span className={`badge badge--sale-${status}`}>{label}</span>;
 }

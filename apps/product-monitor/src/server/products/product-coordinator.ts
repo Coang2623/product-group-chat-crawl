@@ -206,18 +206,16 @@ const mapDescriptionToNewProduct = (
 };
 
 export const classifySaleStatus = (content: string): SaleStatus | null => {
-    const normalized = content
+    const lowered = content.toLocaleLowerCase("vi");
+    if (["cọc", "bán", "chốt"].some((keyword) => lowered.includes(keyword))) return "closed";
+
+    const asciiTokens = lowered.match(/\p{L}+/gu)?.filter((token) => token === token
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/gu, "")
-        .replace(/đ/giu, "d")
-        .toLocaleLowerCase("vi")
-        .replace(/[^a-z0-9]+/gu, " ")
-        .trim();
-    if (!normalized) return null;
-    if (/da ban 1 (?:chiec|may).*con 1/u.test(normalized)) return "partially_sold";
-    if (/\b(?:da|dac) ban\b/u.test(normalized)) return "sold";
-    if (/\bcoc\b/u.test(normalized) || /\bcho[ty]\b/u.test(normalized)) return "reserved";
-    return null;
+        .replace(/đ/giu, "d")) ?? [];
+    return asciiTokens.some((token) => ["coc", "ban", "chot"].includes(token))
+        ? "closed"
+        : null;
 };
 
 const BANGKOK_MONTH_FORMATTER = new Intl.DateTimeFormat("en-US-u-nu-latn", {

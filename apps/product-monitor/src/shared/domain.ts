@@ -1,6 +1,6 @@
 export type ProductStatus = "receiving_images" | "completed" | "needs_review";
 export type ExcelSyncStatus = "pending" | "synced" | "blocked" | "failed";
-export type SaleStatus = "available" | "reserved" | "partially_sold" | "sold";
+export type SaleStatus = "available" | "closed";
 
 export type ProductRecord = {
     id: string;
