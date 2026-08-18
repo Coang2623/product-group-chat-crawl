@@ -60,6 +60,7 @@ import { getCookieFactory } from "./apis/getCookie.js";
 import { getFriendBoardListFactory } from "./apis/getFriendBoardList.js";
 import { getFriendRequestStatusFactory } from "./apis/getFriendRequestStatus.js";
 import { getGroupBlockedMemberFactory } from "./apis/getGroupBlockedMember.js";
+import { getGroupChatHistoryPageFactory } from "./apis/getGroupChatHistoryPage.js";
 import { getGroupInfoFactory } from "./apis/getGroupInfo.js";
 import { getGroupLinkDetailFactory } from "./apis/getGroupLinkDetail.js";
 import { getGroupLinkInfoFactory } from "./apis/getGroupLinkInfo.js";
@@ -345,6 +346,7 @@ export class API {
     public getFriendBoardList: ReturnType<typeof getFriendBoardListFactory>;
     public getFriendRequestStatus: ReturnType<typeof getFriendRequestStatusFactory>;
     public getGroupBlockedMember: ReturnType<typeof getGroupBlockedMemberFactory>;
+    public getGroupChatHistoryPage: ReturnType<typeof getGroupChatHistoryPageFactory>;
     public getGroupInfo: ReturnType<typeof getGroupInfoFactory>;
     public getGroupLinkDetail: ReturnType<typeof getGroupLinkDetailFactory>;
     public getGroupLinkInfo: ReturnType<typeof getGroupLinkInfoFactory>;
@@ -474,6 +476,7 @@ export class API {
         this.getFriendBoardList = getFriendBoardListFactory(ctx, this);
         this.getFriendRequestStatus = getFriendRequestStatusFactory(ctx, this);
         this.getGroupBlockedMember = getGroupBlockedMemberFactory(ctx, this);
+        this.getGroupChatHistoryPage = getGroupChatHistoryPageFactory(ctx, this);
         this.getGroupInfo = getGroupInfoFactory(ctx, this);
         this.getGroupLinkDetail = getGroupLinkDetailFactory(ctx, this);
         this.getGroupLinkInfo = getGroupLinkInfoFactory(ctx, this);

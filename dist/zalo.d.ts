@@ -50,6 +50,7 @@ import { getCookieFactory } from "./apis/getCookie.js";
 import { getFriendBoardListFactory } from "./apis/getFriendBoardList.js";
 import { getFriendRequestStatusFactory } from "./apis/getFriendRequestStatus.js";
 import { getGroupBlockedMemberFactory } from "./apis/getGroupBlockedMember.js";
+import { getGroupChatHistoryPageFactory } from "./apis/getGroupChatHistoryPage.js";
 import { getGroupInfoFactory } from "./apis/getGroupInfo.js";
 import { getGroupLinkDetailFactory } from "./apis/getGroupLinkDetail.js";
 import { getGroupLinkInfoFactory } from "./apis/getGroupLinkInfo.js";
@@ -155,6 +156,7 @@ export declare class Zalo {
     private validateParams;
     login(credentials: Credentials): Promise<API>;
     private loginCookie;
+    private completeLogin;
     loginQR(options?: {
         userAgent?: string;
         language?: string;
@@ -213,6 +215,7 @@ export declare class API {
     getFriendBoardList: ReturnType<typeof getFriendBoardListFactory>;
     getFriendRequestStatus: ReturnType<typeof getFriendRequestStatusFactory>;
     getGroupBlockedMember: ReturnType<typeof getGroupBlockedMemberFactory>;
+    getGroupChatHistoryPage: ReturnType<typeof getGroupChatHistoryPageFactory>;
     getGroupInfo: ReturnType<typeof getGroupInfoFactory>;
     getGroupLinkDetail: ReturnType<typeof getGroupLinkDetailFactory>;
     getGroupLinkInfo: ReturnType<typeof getGroupLinkInfoFactory>;

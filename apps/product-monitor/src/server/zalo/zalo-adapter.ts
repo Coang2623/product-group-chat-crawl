@@ -30,19 +30,31 @@ const QR_EVENT = {
     loginInfo: 4,
 } as const;
 const GROUP_THREAD_TYPE = 1;
+const INITIAL_HISTORY_CURSOR = "10000000000000000";
 
 export interface ZaloListenerFacade {
-    on(event: string, handler: (event: unknown) => void): void;
+    on(event: string, handler: (...events: unknown[]) => void): void;
     start(): unknown;
     stop(): unknown;
+    requestOldMessages(threadType: number, lastMsgId?: string | null): unknown;
     requestOldReactions(threadType: number): unknown;
 }
 
 export interface ZaloApiFacade {
     listener: ZaloListenerFacade;
+    getGroupChatHistoryPage?(groupId: string, globalMsgId?: string): Promise<{
+        lastMsgId: string;
+        hasMore: number;
+        groupMsgs: unknown[];
+    }>;
     getAllGroups(): Promise<{ gridVerMap: Record<string, unknown> }>;
     getGroupInfo(ids: string[]): Promise<{
-        gridInfoMap: Record<string, { groupId: string; name: string; adminIds: unknown[] }>;
+        gridInfoMap: Record<string, {
+            groupId: string;
+            name: string;
+            creatorId?: unknown;
+            adminIds: unknown[];
+        }>;
     }>;
 }
 
@@ -79,6 +91,15 @@ export interface ZaloProductAdapter {
     onReaction(handler: (event: NormalizedReactionEvent) => void): void;
 }
 
+type HistoryBackfill = {
+    groupId: string;
+    highWater: number;
+    newestTimestamp: number;
+    cursor: string | null;
+    historicalMessages: Map<string, unknown>;
+    liveMessages: Map<string, unknown>;
+};
+
 export class ZaloAdapter implements ZaloProductAdapter {
     private readonly login: ZaloLoginFacade;
     private api: ZaloApiFacade | null = null;
@@ -86,6 +107,8 @@ export class ZaloAdapter implements ZaloProductAdapter {
     private selectedGroup: ZaloGroup | null = null;
     private groupCache = new Map<string, ZaloGroup>();
     private listenerBound = false;
+    private listenerConnected = false;
+    private historyBackfill: HistoryBackfill | null = null;
     private readonly descriptionHandlers = new Set<(event: NormalizedDescriptionEvent) => void>();
     private readonly imageHandlers = new Set<(event: NormalizedImageEvent) => void>();
     private readonly reactionHandlers = new Set<(event: NormalizedReactionEvent) => void>();
@@ -163,7 +186,10 @@ export class ZaloAdapter implements ZaloProductAdapter {
             .map((group) => ({
                 id: String(group.groupId),
                 name: String(group.name),
-                adminIds: group.adminIds.map(String),
+                adminIds: [...new Set([
+                    ...group.adminIds.map(String),
+                    ...(group.creatorId === undefined ? [] : [String(group.creatorId)]),
+                ])],
             }))
             .sort((left, right) => left.name.localeCompare(right.name, "vi"));
         this.groupCache = new Map(groups.map((group) => [group.id, group]));
@@ -177,12 +203,24 @@ export class ZaloAdapter implements ZaloProductAdapter {
         this.selectedGroup = group;
         this.options.settings?.setSetting("activeGroupId", group.id);
         this.options.settings?.setSetting("activeGroupAdminIds", JSON.stringify(group.adminIds));
+        if (this.listenerConnected) this.beginHistoryBackfill();
     }
 
     async start(): Promise<void> {
         const api = this.requireApi();
         if (!this.listenerBound) {
-            api.listener.on("message", (message) => this.handleMessage(message));
+            api.listener.on("connected", () => {
+                this.listenerConnected = true;
+                this.state = "connected";
+                api.listener.requestOldReactions(GROUP_THREAD_TYPE);
+                this.beginHistoryBackfill();
+            });
+            api.listener.on("message", (message) => this.handleLiveMessage(message));
+            api.listener.on("old_messages", (messages, threadType) => {
+                if (threadType === undefined || Number(threadType) === GROUP_THREAD_TYPE) {
+                    this.handleOldMessages(messages);
+                }
+            });
             api.listener.on("reaction", (reaction) => this.handleReaction(reaction));
             api.listener.on("old_reactions", (reactions) => {
                 if (Array.isArray(reactions)) {
@@ -193,15 +231,23 @@ export class ZaloAdapter implements ZaloProductAdapter {
                 this.state = "reconnecting";
                 this.report("listener_error", error);
             });
+            api.listener.on("disconnected", () => {
+                this.listenerConnected = false;
+                this.state = "reconnecting";
+            });
+            api.listener.on("closed", () => {
+                this.listenerConnected = false;
+                this.state = "disconnected";
+            });
             this.listenerBound = true;
         }
         await api.listener.start();
-        api.listener.requestOldReactions(GROUP_THREAD_TYPE);
-        this.state = "connected";
     }
 
     stop(): void {
         this.api?.listener.stop();
+        this.listenerConnected = false;
+        this.historyBackfill = null;
         this.state = this.api ? "disconnected" : "signed_out";
     }
 
@@ -256,6 +302,133 @@ export class ZaloAdapter implements ZaloProductAdapter {
             return;
         }
         this.report("unknown_message", raw);
+    }
+
+    private handleLiveMessage(raw: unknown): void {
+        const backfill = this.historyBackfill;
+        const identity = messageIdentity(raw);
+        if (backfill && identity?.groupId === backfill.groupId) {
+            backfill.liveMessages.set(identity.messageId, raw);
+            return;
+        }
+        this.handleMessage(raw);
+    }
+
+    private beginHistoryBackfill(): void {
+        if (!this.listenerConnected || !this.selectedGroup) return;
+        const groupId = this.selectedGroup.id;
+        const storedHighWater = Number(
+            this.options.settings?.getSetting(historyHighWaterKey(groupId)) ?? 0,
+        );
+        this.historyBackfill = {
+            groupId,
+            highWater: Number.isSafeInteger(storedHighWater) && storedHighWater >= 0
+                ? storedHighWater
+                : 0,
+            newestTimestamp: 0,
+            cursor: null,
+            historicalMessages: new Map(),
+            liveMessages: new Map(),
+        };
+        const api = this.requireApi();
+        if (api.getGroupChatHistoryPage) {
+            void this.loadGroupHistory(api, this.historyBackfill);
+        } else {
+            api.listener.requestOldMessages(GROUP_THREAD_TYPE, null);
+        }
+    }
+
+    private async loadGroupHistory(api: ZaloApiFacade, backfill: HistoryBackfill): Promise<void> {
+        let cursor = INITIAL_HISTORY_CURSOR;
+        try {
+            while (this.historyBackfill === backfill) {
+                const page = await api.getGroupChatHistoryPage?.(backfill.groupId, cursor);
+                if (!page || this.historyBackfill !== backfill) return;
+                let reachedHighWater = false;
+                for (const message of page.groupMsgs) {
+                    const identity = messageIdentity(message);
+                    if (!identity || identity.groupId !== backfill.groupId) continue;
+                    backfill.newestTimestamp = Math.max(backfill.newestTimestamp, identity.sentAt);
+                    if (identity.sentAt <= backfill.highWater) {
+                        reachedHighWater = true;
+                    } else {
+                        backfill.historicalMessages.set(identity.messageId, message);
+                    }
+                }
+                const nextCursor = stringValue(page.lastMsgId);
+                if (reachedHighWater || !page.hasMore || !nextCursor || nextCursor === cursor) break;
+                cursor = nextCursor;
+            }
+        } catch (error) {
+            this.report("history_backfill_failed", error);
+        } finally {
+            if (this.historyBackfill === backfill) this.finishHistoryBackfill();
+        }
+    }
+
+    private handleOldMessages(raw: unknown): void {
+        const backfill = this.historyBackfill;
+        if (!backfill || !Array.isArray(raw)) return;
+        if (!raw.length) {
+            this.finishHistoryBackfill();
+            return;
+        }
+
+        let oldestBatchMessage: ReturnType<typeof messageIdentity> = null;
+        let reachedHighWater = false;
+        for (const message of raw) {
+            const identity = messageIdentity(message);
+            if (!identity) continue;
+            if (!oldestBatchMessage || compareMessageIdentity(identity, oldestBatchMessage) < 0) {
+                oldestBatchMessage = identity;
+            }
+            if (identity.groupId !== backfill.groupId) continue;
+            backfill.newestTimestamp = Math.max(backfill.newestTimestamp, identity.sentAt);
+            if (identity.sentAt <= backfill.highWater) {
+                reachedHighWater = true;
+                continue;
+            }
+            backfill.historicalMessages.set(identity.messageId, message);
+        }
+
+        const nextCursor = oldestBatchMessage?.messageId ?? null;
+        if (reachedHighWater || !nextCursor || nextCursor === backfill.cursor) {
+            this.finishHistoryBackfill();
+            return;
+        }
+        backfill.cursor = nextCursor;
+        this.requireApi().listener.requestOldMessages(GROUP_THREAD_TYPE, nextCursor);
+    }
+
+    private finishHistoryBackfill(): void {
+        const backfill = this.historyBackfill;
+        if (!backfill) return;
+        this.historyBackfill = null;
+
+        const messages = new Map(backfill.historicalMessages);
+        for (const [messageId, message] of backfill.liveMessages) messages.set(messageId, message);
+        const chronological = [...messages.values()].sort((left, right) => {
+            const leftIdentity = messageIdentity(left);
+            const rightIdentity = messageIdentity(right);
+            if (!leftIdentity || !rightIdentity) return 0;
+            return compareMessageIdentity(leftIdentity, rightIdentity);
+        });
+        for (const message of chronological) this.handleMessage(message);
+
+        const newest = chronological.reduce<number>((maximum, message) => {
+            const identity = messageIdentity(message);
+            return identity?.groupId === backfill.groupId
+                ? Math.max(maximum, identity.sentAt)
+                : maximum;
+        }, backfill.newestTimestamp);
+        if (newest > backfill.highWater) {
+            this.options.settings?.setSetting(historyHighWaterKey(backfill.groupId), String(newest));
+        }
+        this.report("history_backfill_completed", {
+            groupId: backfill.groupId,
+            messageCount: chronological.length,
+            highWater: newest,
+        });
     }
 
     handleReaction(raw: unknown): void {
@@ -347,10 +520,34 @@ const numericTimestamp = (value: unknown): number | null => {
     return Number.isSafeInteger(timestamp) && timestamp >= 0 ? timestamp : null;
 };
 
+type MessageIdentity = { groupId: string; messageId: string; sentAt: number };
+
+const messageIdentity = (raw: unknown): MessageIdentity | null => {
+    const event = asRecord(raw);
+    const data = asRecord(event?.data);
+    if (!data) return null;
+    const groupId = stringValue(event?.threadId) ?? stringValue(data.idTo);
+    const messageId = stringValue(data.msgId) ?? stringValue(data.cliMsgId);
+    const sentAt = numericTimestamp(data.ts);
+    return groupId && messageId && sentAt !== null ? { groupId, messageId, sentAt } : null;
+};
+
+const compareMessageIdentity = (left: MessageIdentity, right: MessageIdentity): number =>
+    left.sentAt - right.sentAt || left.messageId.localeCompare(right.messageId);
+
+const historyHighWaterKey = (groupId: string): string => `zaloHistoryHighWater:${groupId}`;
+
 const sanitize = (value: unknown): string => {
     const sensitive = /^(content|cookie|token|href|thumb|image|authorization)$/iu;
     try {
-        return JSON.stringify(value, (key, nested) => sensitive.test(key) ? "[redacted]" : nested);
+        const diagnosticValue = value instanceof Error
+            ? {
+                name: value.name,
+                message: value.message,
+                code: numberValue((value as Error & { code?: unknown }).code),
+            }
+            : value;
+        return JSON.stringify(diagnosticValue, (key, nested) => sensitive.test(key) ? "[redacted]" : nested);
     } catch {
         return "[unserializable event]";
     }

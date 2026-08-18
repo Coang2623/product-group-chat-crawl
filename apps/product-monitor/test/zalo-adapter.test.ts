@@ -10,17 +10,18 @@ import {
 import { groupPhoto, groupReaction, groupText } from "./fixtures/zalo-events.js";
 
 class FakeListener {
-    readonly handlers = new Map<string, Array<(event: unknown) => void>>();
-    start = vi.fn();
+    readonly handlers = new Map<string, Array<(...events: unknown[]) => void>>();
+    start = vi.fn(() => this.emit("connected"));
     stop = vi.fn();
+    requestOldMessages = vi.fn();
     requestOldReactions = vi.fn();
 
-    on(event: string, handler: (event: unknown) => void): void {
+    on(event: string, handler: (...events: unknown[]) => void): void {
         this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler]);
     }
 
-    emit(event: string, value: unknown): void {
-        for (const handler of this.handlers.get(event) ?? []) handler(value);
+    emit(event: string, ...values: unknown[]): void {
+        for (const handler of this.handlers.get(event) ?? []) handler(...values);
     }
 }
 
@@ -40,7 +41,12 @@ describe("ZaloAdapter", () => {
             getGroupInfo: vi.fn().mockResolvedValue({
                 gridInfoMap: {
                     g1: { groupId: "g1", name: "Laptop giá tốt", adminIds: ["admin-1", 22] },
-                    g2: { groupId: "g2", name: "Nhóm khác", adminIds: ["admin-2"] },
+                    g2: {
+                        groupId: "g2",
+                        name: "Nhóm khác",
+                        creatorId: "creator-2",
+                        adminIds: ["admin-2"],
+                    },
                 },
             }),
         };
@@ -136,7 +142,7 @@ describe("ZaloAdapter", () => {
     it("lists normalized groups and persists the selected group", async () => {
         await expect(adapter.listGroups()).resolves.toEqual([
             { id: "g1", name: "Laptop giá tốt", adminIds: ["admin-1", "22"] },
-            { id: "g2", name: "Nhóm khác", adminIds: ["admin-2"] },
+            { id: "g2", name: "Nhóm khác", adminIds: ["admin-2", "creator-2"] },
         ]);
         expect(adapter.getSelectedGroup()?.id).toBe("g1");
     });
@@ -148,15 +154,77 @@ describe("ZaloAdapter", () => {
         adapter.onReaction(onReaction);
         await adapter.start();
 
+        listener.emit("old_messages", [], 1);
         listener.emit("message", groupText());
         listener.emit("old_reactions", [groupReaction()]);
 
         expect(listener.start).toHaveBeenCalledOnce();
         expect(listener.requestOldReactions).toHaveBeenCalledOnce();
+        expect(listener.requestOldMessages).toHaveBeenCalledWith(1, null);
         expect(onDescription).toHaveBeenCalledOnce();
         expect(onReaction).toHaveBeenCalledOnce();
         adapter.stop();
         expect(listener.stop).toHaveBeenCalledOnce();
+    });
+
+    it("paginates old messages and replays them in chronological order", async () => {
+        const events: string[] = [];
+        adapter.onDescription((event) => events.push(`description:${event.messageId}`));
+        adapter.onImage((event) => events.push(`image:${event.messageId}`));
+        await adapter.start();
+
+        listener.emit("old_messages", [groupPhoto(), groupText()], 1);
+        expect(listener.requestOldMessages).toHaveBeenLastCalledWith(1, "message-1");
+        expect(events).toEqual([]);
+
+        listener.emit("old_messages", [], 1);
+        expect(events).toEqual(["description:message-1", "image:image-1"]);
+    });
+
+    it("paginates group history from the HTTP endpoint", async () => {
+        const events: string[] = [];
+        api.getGroupChatHistoryPage = vi.fn()
+            .mockResolvedValueOnce({
+                lastMsgId: "older-cursor",
+                hasMore: 1,
+                groupMsgs: [groupPhoto()],
+            })
+            .mockResolvedValueOnce({
+                lastMsgId: "oldest-cursor",
+                hasMore: 0,
+                groupMsgs: [groupText()],
+            });
+        adapter.onDescription((event) => events.push(`description:${event.messageId}`));
+        adapter.onImage((event) => events.push(`image:${event.messageId}`));
+
+        await adapter.start();
+        await vi.waitFor(() => expect(events).toEqual([
+            "description:message-1",
+            "image:image-1",
+        ]));
+
+        expect(api.getGroupChatHistoryPage).toHaveBeenNthCalledWith(
+            1,
+            "g1",
+            "10000000000000000",
+        );
+        expect(api.getGroupChatHistoryPage).toHaveBeenNthCalledWith(2, "g1", "older-cursor");
+        expect(listener.requestOldMessages).not.toHaveBeenCalled();
+    });
+
+    it("queues live messages until old-message backfill is complete", async () => {
+        const events: string[] = [];
+        adapter.onDescription((event) => events.push(event.messageId));
+        await adapter.start();
+
+        listener.emit("message", groupText({
+            data: { ...groupText().data, msgId: "live-message", ts: "1785330005000" },
+        }));
+        expect(events).toEqual([]);
+
+        listener.emit("old_messages", [groupText()], 1);
+        listener.emit("old_messages", [], 1);
+        expect(events).toEqual(["message-1", "live-message"]);
     });
 
     it("reports unknown attachments without leaking their URLs", async () => {

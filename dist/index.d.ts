@@ -47,6 +47,7 @@ export type { GetBizAccountResponse } from "./apis/getBizAccount.js";
 export type { GetCatalogListPayload, GetCatalogListResponse } from "./apis/getCatalogList.js";
 export type { GetFriendBoardListResponse } from "./apis/getFriendBoardList.js";
 export type { GetGroupBlockedMemberPayload, GetGroupBlockedMemberResponse } from "./apis/getGroupBlockedMember.js";
+export type { GetGroupChatHistoryPageResponse } from "./apis/getGroupChatHistoryPage.js";
 export type { GroupInfo, GroupInfoExtra, GroupInfoPendingApprove, GroupInfoResponse } from "./apis/getGroupInfo.js";
 export type { GetGroupLinkDetailResponse } from "./apis/getGroupLinkDetail.js";
 export type { GetGroupLinkInfoPayload, GetGroupLinkInfoResponse } from "./apis/getGroupLinkInfo.js";
