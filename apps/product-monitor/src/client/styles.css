@@ -338,6 +338,10 @@ td small { margin-top: 3px; color: #8c98aa; font-size: 8px; }
 .badge--needs_review, .badge--excel-failed { color: #a33341; background: #ffeaed; }
 .badge--excel-pending { color: #876100; background: #fff4cf; }
 .badge--excel-blocked { color: #9b4b1a; background: #ffeadc; }
+.badge--sale-available { color: #14754b; background: #e7f8ef; }
+.badge--sale-reserved { color: #876100; background: #fff4cf; }
+.badge--sale-partially_sold { color: #9b4b1a; background: #ffeadc; }
+.badge--sale-sold { color: #a33341; background: #ffeaed; }
 .icon-button {
     width: 28px;
     height: 28px;

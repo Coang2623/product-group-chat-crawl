@@ -113,6 +113,37 @@ describe("ZaloAdapter", () => {
         }));
     });
 
+    it("normalizes quoted status text without creating a description", () => {
+        const onDescription = vi.fn();
+        const onSaleStatus = vi.fn();
+        adapter.onDescription(onDescription);
+        adapter.onSaleStatus(onSaleStatus);
+
+        adapter.handleMessage(groupText({
+            data: {
+                ...groupText().data,
+                msgId: "status-global",
+                cliMsgId: "status-client",
+                content: "CÃ³ cá»c",
+                quote: {
+                    globalMsgId: 0,
+                    cliMsgId: "product-client",
+                    msg: "Laptop target",
+                    ts: "1785320000000",
+                },
+            },
+        }));
+
+        expect(onDescription).not.toHaveBeenCalled();
+        expect(onSaleStatus).toHaveBeenCalledWith(expect.objectContaining({
+            messageId: "status-global",
+            messageAliases: ["status-global", "status-client"],
+            targetMessageIds: ["product-client"],
+            targetContent: "Laptop target",
+            targetSentAt: 1785320000000,
+        }));
+    });
+
     it("normalizes reaction target IDs and removals", () => {
         const onReaction = vi.fn();
         adapter.onReaction(onReaction);

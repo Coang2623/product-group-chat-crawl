@@ -23,6 +23,7 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
                             <th>Cấu hình</th>
                             <th>Giá</th>
                             <th>Ảnh / Tym</th>
+                            <th>Bán hàng</th>
                             <th>Xử lý</th>
                             <th>Excel</th>
                             <th><span className="sr-only">Thao tác</span></th>
@@ -41,6 +42,7 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
                                 <td>{[product.cpu, product.ram, product.storage].filter(Boolean).join(" · ") || "Giữ nội dung gốc"}</td>
                                 <td className="price">{formatPrice(product.price)}</td>
                                 <td>{product.imageCount} ảnh · {product.heartCount} tym</td>
+                                <td><SaleBadge status={product.saleStatus} /></td>
                                 <td><StatusBadge status={product.status} /></td>
                                 <td><ExcelBadge status={product.excelSyncStatus} /></td>
                                 <td>
@@ -64,6 +66,16 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
             </div>
         </section>
     );
+}
+
+function SaleBadge({ status }: { status: ProductRecord["saleStatus"] }) {
+    const label = {
+        available: "Còn hàng",
+        reserved: "Có cọc",
+        partially_sold: "Còn một phần",
+        sold: "Đã bán",
+    }[status];
+    return <span className={`badge badge--sale-${status}`}>{label}</span>;
 }
 
 function StatusBadge({ status }: { status: ProductRecord["status"] }) {

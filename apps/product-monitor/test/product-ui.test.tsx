@@ -26,6 +26,7 @@ const product: ProductRecord = {
     imageCount: 0,
     mediaDirectory: "data/media/2026-07/product-1",
     heartCount: 0,
+    saleStatus: "available",
     status: "receiving_images",
     excelSyncStatus: "pending",
     createdAt: 1,

@@ -1,5 +1,6 @@
 export type ProductStatus = "receiving_images" | "completed" | "needs_review";
 export type ExcelSyncStatus = "pending" | "synced" | "blocked" | "failed";
+export type SaleStatus = "available" | "reserved" | "partially_sold" | "sold";
 
 export type ProductRecord = {
     id: string;
@@ -26,6 +27,10 @@ export type ProductRecord = {
     coverImagePath?: string;
     mediaDirectory: string;
     heartCount: number;
+    saleStatus: SaleStatus;
+    saleStatusMessageId?: string;
+    saleStatusText?: string;
+    saleStatusUpdatedAt?: number;
     status: ProductStatus;
     excelSyncStatus: ExcelSyncStatus;
     createdAt: number;
@@ -71,6 +76,8 @@ export type NormalizedDescriptionEvent = {
     messageId: string;
     content: string;
     sentAt: number;
+    /** All server/client IDs that can later be referenced by a Zalo quote. */
+    targetMessageIds?: string[];
 };
 
 export type NormalizedImageEvent = {
@@ -78,6 +85,21 @@ export type NormalizedImageEvent = {
     senderId: string;
     messageId: string;
     imageUrl: string;
+    sentAt: number;
+    targetMessageIds?: string[];
+};
+
+export type NormalizedSaleStatusEvent = {
+    groupId: string;
+    groupName?: string;
+    senderId: string;
+    targetSenderName?: string;
+    messageId: string;
+    targetMessageIds: string[];
+    targetContent?: string;
+    targetSentAt?: number;
+    messageAliases?: string[];
+    content: string;
     sentAt: number;
 };
 
@@ -103,3 +125,12 @@ export type ProductFilter = {
 };
 
 export type HeartStateInput = ProductReaction;
+
+export type SaleStatusInput = {
+    productId: string;
+    messageId: string;
+    targetMessageId: string;
+    status: SaleStatus;
+    rawContent: string;
+    occurredAt: number;
+};

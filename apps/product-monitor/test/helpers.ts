@@ -14,6 +14,7 @@ export const fixtureProduct = (overrides: Partial<NewProductRecord> = {}): NewPr
     mediaDirectory: "data/media/2026-07/product-1",
     imageCount: 0,
     heartCount: 0,
+    saleStatus: "available",
     status: "receiving_images",
     excelSyncStatus: "pending",
     createdAt: Date.now(),

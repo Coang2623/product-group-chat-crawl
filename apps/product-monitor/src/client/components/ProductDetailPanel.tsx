@@ -49,6 +49,11 @@ export function ProductDetailPanel({
                     </dl>
                 </section>
                 {product.notes && <section><h3>Ghi chú</h3><p>{product.notes}</p></section>}
+                <section>
+                    <h3>Trạng thái bán</h3>
+                    <p>{saleLabel(product.saleStatus)}</p>
+                    {product.saleStatusText && <small>Cập nhật từ reply: “{product.saleStatusText}”</small>}
+                </section>
                 <section className="raw-content"><h3>Nội dung gốc</h3><p>{product.rawContent}</p></section>
                 <section><h3>Message ID</h3><code>{product.descriptionMessageId}</code></section>
                 <section><h3>Lịch sử đồng bộ</h3><p>{excelLabel(product.excelSyncStatus)}</p></section>
@@ -74,6 +79,12 @@ const statusLabel = (status: string) => ({
     receiving_images: "Đang nhận ảnh · realtime",
     completed: "Hoàn tất",
     needs_review: "Cần kiểm tra parser",
+}[status] ?? status);
+const saleLabel = (status: string) => ({
+    available: "Còn hàng",
+    reserved: "Đã có cọc / đã chốt",
+    partially_sold: "Đã bán một phần, vẫn còn hàng",
+    sold: "Đã bán",
 }[status] ?? status);
 const excelLabel = (status: string) => ({
     pending: "Thay đổi đang chờ ghi vào workbook.",

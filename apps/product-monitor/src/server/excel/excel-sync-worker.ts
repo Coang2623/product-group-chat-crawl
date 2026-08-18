@@ -40,6 +40,7 @@ const HEADERS = [
     "Số ảnh",
     "Thư mục ảnh",
     "Số tym",
+    "Trạng thái bán",
     "Trạng thái",
     "Nội dung gốc",
     "Message ID",
@@ -72,6 +73,13 @@ const productStatus = (status: ProductRecord["status"]): string => ({
     receiving_images: "Đang nhận ảnh",
     completed: "Hoàn tất",
     needs_review: "Cần kiểm tra",
+})[status];
+
+const saleStatus = (status: ProductRecord["saleStatus"]): string => ({
+    available: "Còn hàng",
+    reserved: "Có cọc",
+    partially_sold: "Đã bán một phần",
+    sold: "Đã bán",
 })[status];
 
 export class ExcelSyncWorker {
@@ -170,6 +178,7 @@ export class ExcelSyncWorker {
                         hyperlink: pathToFileURL(product.mediaDirectory).href,
                     },
                     product.heartCount,
+                    saleStatus(product.saleStatus),
                     productStatus(product.status),
                     product.rawContent,
                     product.descriptionMessageId,
@@ -189,9 +198,9 @@ export class ExcelSyncWorker {
         header.alignment = { vertical: "middle", horizontal: "center" };
         header.height = 24;
         sheet.views = [{ state: "frozen", ySplit: 1 }];
-        sheet.autoFilter = { from: "A1", to: "V1" };
+        sheet.autoFilter = { from: "A1", to: "W1" };
         sheet.columns.forEach((column, index) => {
-            column.width = index === 3 ? 16 : index === 20 ? 45 : index === 17 ? 22 : 18;
+            column.width = index === 3 ? 16 : index === 21 ? 45 : index === 17 ? 22 : 18;
         });
     }
 

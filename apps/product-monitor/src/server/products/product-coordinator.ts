@@ -4,8 +4,10 @@ import type {
     NewProductRecord,
     NormalizedDescriptionEvent,
     NormalizedImageEvent,
+    NormalizedSaleStatusEvent,
     ProductMedia,
     ProductRecord,
+    SaleStatus,
 } from "../../shared/domain.js";
 import type { ProductRepository } from "../db/product-repository.js";
 import { parseLaptopPost, type LaptopParseResult } from "../parser/laptop-parser.js";
@@ -27,7 +29,10 @@ export class ProductCoordinator {
         this.assertPublisher(event.senderId);
 
         const existing = this.repository.getProductByMessageId(event.messageId);
-        if (existing) return existing;
+        if (existing) {
+            this.repository.linkMessage(existing.id, event.targetMessageIds ?? [event.messageId], "description", event.sentAt);
+            return existing;
+        }
 
         try {
             return this.repository.runInTransaction(() => {
@@ -38,6 +43,7 @@ export class ProductCoordinator {
                 const product = this.repository.createProduct(
                     mapDescriptionToNewProduct(event, parsed, this.options.mediaRoot),
                 );
+                this.repository.linkMessage(product.id, event.targetMessageIds ?? [event.messageId], "description", event.sentAt);
                 this.repository.enqueueExcelSync(product.id);
                 return product;
             });
@@ -69,8 +75,69 @@ export class ProductCoordinator {
                 downloadStatus: "pending",
                 createdAt: event.sentAt,
             });
+            this.repository.linkMessage(active.id, event.targetMessageIds ?? [event.messageId], "image", event.sentAt);
             this.repository.enqueueExcelSync(active.id);
             return media;
+        });
+    }
+
+    handleSaleStatus(event: NormalizedSaleStatusEvent): ProductRecord | "ignored" | "orphan" {
+        this.assertActiveGroup(event.groupId);
+        this.assertPublisher(event.senderId);
+        const saleStatus = classifySaleStatus(event.content);
+        if (!saleStatus) return "ignored";
+        if (this.repository.hasSaleStatusEvent(event.messageId)) {
+            return this.repository.getProductByTargetMessageId(event.messageId) ?? "orphan";
+        }
+
+        let target = event.targetMessageIds
+            .map((messageId) => this.repository.getProductByTargetMessageId(messageId))
+            .find((product): product is ProductRecord => Boolean(product))
+            ?? (event.targetContent
+                ? this.repository.getProductByQuotedMessage(event.targetContent, event.targetSentAt)
+                : null);
+        let materializedFromQuote = false;
+        if (!target && event.targetContent && event.targetSentAt !== undefined && event.groupName) {
+            target = this.handleDescription({
+                groupId: event.groupId,
+                groupName: event.groupName,
+                senderId: event.senderId,
+                senderName: event.targetSenderName,
+                messageId: event.targetMessageIds[0],
+                targetMessageIds: event.targetMessageIds,
+                content: event.targetContent,
+                sentAt: event.targetSentAt,
+            });
+            materializedFromQuote = true;
+        }
+        if (!target) return "orphan";
+
+        return this.repository.runInTransaction(() => {
+            // Older versions interpreted every publisher text as a product. Remove only
+            // the exact generated row for this now-recognized status reply.
+            if (target.descriptionMessageId !== event.messageId) {
+                this.repository.deleteGeneratedStatusProduct(event.messageId);
+            }
+            const targetMessageId = event.targetMessageIds[0] ?? target.descriptionMessageId;
+            const updated = this.repository.applySaleStatus({
+                productId: target.id,
+                messageId: event.messageId,
+                targetMessageId,
+                status: saleStatus,
+                rawContent: event.content,
+                occurredAt: event.sentAt,
+            });
+            this.repository.linkMessage(
+                target.id,
+                event.messageAliases ?? [event.messageId],
+                "sale_status",
+                event.sentAt,
+            );
+            this.repository.enqueueExcelSync(target.id);
+            if (materializedFromQuote && this.repository.getActiveProduct()?.id === target.id) {
+                this.repository.completeActiveProduct(event.sentAt);
+            }
+            return this.repository.getProduct(updated.id) ?? updated;
         });
     }
 
@@ -130,11 +197,27 @@ const mapDescriptionToNewProduct = (
         imageCount: 0,
         mediaDirectory: productMediaDirectory(mediaRoot, event.sentAt, id),
         heartCount: 0,
+        saleStatus: "available",
         status: parsed.ok ? "receiving_images" : "needs_review",
         excelSyncStatus: "pending",
         createdAt: event.sentAt,
         updatedAt: event.sentAt,
     };
+};
+
+export const classifySaleStatus = (content: string): SaleStatus | null => {
+    const normalized = content
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/gu, "")
+        .replace(/đ/giu, "d")
+        .toLocaleLowerCase("vi")
+        .replace(/[^a-z0-9]+/gu, " ")
+        .trim();
+    if (!normalized) return null;
+    if (/da ban 1 (?:chiec|may).*con 1/u.test(normalized)) return "partially_sold";
+    if (/\b(?:da|dac) ban\b/u.test(normalized)) return "sold";
+    if (/\bcoc\b/u.test(normalized) || /\bcho[ty]\b/u.test(normalized)) return "reserved";
+    return null;
 };
 
 const BANGKOK_MONTH_FORMATTER = new Intl.DateTimeFormat("en-US-u-nu-latn", {

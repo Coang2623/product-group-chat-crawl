@@ -56,6 +56,79 @@ describe("ProductCoordinator", () => {
         expect(repo.listProducts()).toHaveLength(2);
     });
 
+    it("maps deposit and sold replies through client message aliases", () => {
+        const target = coordinator.handleDescription(descriptionEvent({
+            messageId: "product-global",
+            targetMessageIds: ["product-global", "product-client"],
+            sentAt: 100,
+        }));
+        // Simulate the row produced by the older adapter before quoted texts were separated.
+        coordinator.handleDescription(descriptionEvent({
+            messageId: "deposit-global",
+            content: "C\u00f3 c\u1ecdc",
+            sentAt: 200,
+        }));
+
+        const reserved = coordinator.handleSaleStatus({
+            groupId: "group-1",
+            senderId: "admin-1",
+            messageId: "deposit-global",
+            messageAliases: ["deposit-global", "deposit-client"],
+            targetMessageIds: ["product-client"],
+            content: "C\u00f3 c\u1ecdc",
+            sentAt: 200,
+        });
+        expect(reserved).toMatchObject({ id: target.id, saleStatus: "reserved", saleStatusText: "C\u00f3 c\u1ecdc" });
+        expect(repo.getProductByMessageId("deposit-global")).toBeNull();
+
+        const sold = coordinator.handleSaleStatus({
+            groupId: "group-1",
+            senderId: "admin-1",
+            messageId: "sold-global",
+            targetMessageIds: ["deposit-client"],
+            content: "\u0110\u00e3 b\u00e1n",
+            sentAt: 300,
+        });
+        expect(sold).toMatchObject({ id: target.id, saleStatus: "sold", saleStatusText: "\u0110\u00e3 b\u00e1n" });
+        expect(repo.listProducts()).toHaveLength(1);
+    });
+
+    it("keeps partial inventory distinct from fully sold", () => {
+        const target = coordinator.handleDescription(descriptionEvent({ messageId: "product", sentAt: 100 }));
+        const updated = coordinator.handleSaleStatus({
+            groupId: "group-1",
+            senderId: "admin-1",
+            messageId: "partial-status",
+            targetMessageIds: ["product"],
+            content: "\u0110\u00e3 b\u00e1n 1 chi\u1ebfc c\u00f2n 1 chi\u1ebfc n\u1eefa",
+            sentAt: 200,
+        });
+        expect(updated).toMatchObject({ id: target.id, saleStatus: "partially_sold" });
+    });
+
+    it("materializes a quoted product outside the retained history window", () => {
+        const updated = coordinator.handleSaleStatus({
+            groupId: "group-1",
+            groupName: "Laptop group",
+            senderId: "admin-1",
+            targetSenderName: "Admin",
+            messageId: "status-message",
+            targetMessageIds: ["old-client-message"],
+            targetContent: descriptionEvent().content,
+            targetSentAt: 100,
+            content: "\u0110\u00e3 b\u00e1n",
+            sentAt: 200,
+        });
+
+        expect(updated).toMatchObject({
+            descriptionMessageId: "old-client-message",
+            saleStatus: "sold",
+            status: "completed",
+        });
+        expect(repo.getActiveProduct()).toBeNull();
+        expect(repo.listProducts()).toHaveLength(1);
+    });
+
     it("treats a replayed source message as the same event without closing the current draft", () => {
         const first = coordinator.handleDescription(descriptionEvent({ messageId: "m1", sentAt: 100 }));
         const active = coordinator.handleDescription(descriptionEvent({ messageId: "m2", sentAt: 200 }));

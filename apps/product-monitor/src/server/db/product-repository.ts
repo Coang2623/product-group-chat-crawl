@@ -8,6 +8,7 @@ import type {
     ProductFilter,
     ProductMedia,
     ProductRecord,
+    SaleStatusInput,
 } from "../../shared/domain.js";
 
 type ProductRow = Record<string, unknown>;
@@ -40,6 +41,12 @@ const productFromRow = (row: ProductRow): ProductRecord => ({
     coverImagePath: optionalString(row.cover_image_path),
     mediaDirectory: String(row.media_directory),
     heartCount: Number(row.heart_count),
+    saleStatus: (row.sale_status ?? "available") as ProductRecord["saleStatus"],
+    saleStatusMessageId: optionalString(row.sale_status_message_id),
+    saleStatusText: optionalString(row.sale_status_text),
+    saleStatusUpdatedAt: row.sale_status_updated_at === null || row.sale_status_updated_at === undefined
+        ? undefined
+        : Number(row.sale_status_updated_at),
     status: row.status as ProductRecord["status"],
     excelSyncStatus: row.excel_sync_status as ProductRecord["excelSyncStatus"],
     createdAt: Number(row.created_at),
@@ -75,6 +82,11 @@ export interface ProductRepository {
     getProduct(id: string): ProductRecord | null;
     getProductByMessageId(messageId: string): ProductRecord | null;
     getProductByTargetMessageId(messageId: string): ProductRecord | null;
+    getProductByQuotedMessage(content: string, sentAt?: number): ProductRecord | null;
+    linkMessage(productId: string, messageIds: string[], kind: "description" | "image" | "sale_status", createdAt: number): void;
+    applySaleStatus(input: SaleStatusInput): ProductRecord;
+    hasSaleStatusEvent(messageId: string): boolean;
+    deleteGeneratedStatusProduct(messageId: string): void;
     listProducts(filter?: ProductFilter): ProductRecord[];
     addMedia(input: NewProductMedia): ProductMedia;
     getMedia(id: string): ProductMedia | null;
@@ -111,11 +123,13 @@ export class SqliteProductRepository implements ProductRepository {
             INSERT INTO products (
                 id, group_id, group_name, description_message_id, sender_id, sender_name, posted_at, raw_content,
                 product_name, brand, model, cpu, ram, storage, gpu, display, condition_text, price, raw_price, notes,
-                image_count, cover_image_path, media_directory, heart_count, status, excel_sync_status, created_at, updated_at
+                image_count, cover_image_path, media_directory, heart_count, sale_status, sale_status_message_id,
+                sale_status_text, sale_status_updated_at, status, excel_sync_status, created_at, updated_at
             ) VALUES (
                 @id, @groupId, @groupName, @descriptionMessageId, @senderId, @senderName, @postedAt, @rawContent,
                 @productName, @brand, @model, @cpu, @ram, @storage, @gpu, @display, @condition, @price, @rawPrice, @notes,
-                @imageCount, @coverImagePath, @mediaDirectory, @heartCount, @status, @excelSyncStatus, @createdAt, @updatedAt
+                @imageCount, @coverImagePath, @mediaDirectory, @heartCount, @saleStatus, @saleStatusMessageId,
+                @saleStatusText, @saleStatusUpdatedAt, @status, @excelSyncStatus, @createdAt, @updatedAt
             )
         `).run({
             ...input,
@@ -133,6 +147,9 @@ export class SqliteProductRepository implements ProductRepository {
             rawPrice: input.rawPrice ?? null,
             notes: input.notes ?? null,
             coverImagePath: input.coverImagePath ?? null,
+            saleStatusMessageId: input.saleStatusMessageId ?? null,
+            saleStatusText: input.saleStatusText ?? null,
+            saleStatusUpdatedAt: input.saleStatusUpdatedAt ?? null,
         });
         return this.requireProduct(input.id);
     }
@@ -165,8 +182,62 @@ export class SqliteProductRepository implements ProductRepository {
             SELECT products.* FROM products
             INNER JOIN product_media ON product_media.product_id = products.id
             WHERE product_media.source_message_id = @messageId
+            UNION ALL
+            SELECT products.* FROM products
+            INNER JOIN product_message_links ON product_message_links.product_id = products.id
+            WHERE product_message_links.message_id = @messageId
             LIMIT 1
         `).get({ messageId }));
+    }
+
+    getProductByQuotedMessage(content: string, sentAt?: number): ProductRecord | null {
+        const row = sentAt === undefined
+            ? this.database.prepare("SELECT * FROM products WHERE raw_content = ? ORDER BY posted_at DESC LIMIT 1").get(content)
+            : this.database.prepare(`
+                SELECT * FROM products
+                WHERE raw_content = @content
+                ORDER BY ABS(posted_at - @sentAt) ASC, posted_at DESC
+                LIMIT 1
+            `).get({ content, sentAt });
+        return this.productOrNull(row);
+    }
+
+    linkMessage(productId: string, messageIds: string[], kind: "description" | "image" | "sale_status", createdAt: number): void {
+        const insert = this.database.prepare(`
+            INSERT INTO product_message_links (message_id, product_id, kind, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(message_id) DO NOTHING
+        `);
+        for (const messageId of new Set(messageIds.filter(Boolean))) {
+            insert.run(messageId, productId, kind, createdAt);
+        }
+    }
+
+    applySaleStatus(input: SaleStatusInput): ProductRecord {
+        this.database.prepare(`
+            INSERT INTO product_sale_events (message_id, product_id, target_message_id, status, raw_content, occurred_at)
+            VALUES (@messageId, @productId, @targetMessageId, @status, @rawContent, @occurredAt)
+            ON CONFLICT(message_id) DO NOTHING
+        `).run(input);
+        this.database.prepare(`
+            UPDATE products
+            SET sale_status = @status,
+                sale_status_message_id = @messageId,
+                sale_status_text = @rawContent,
+                sale_status_updated_at = @occurredAt,
+                updated_at = MAX(updated_at, @occurredAt)
+            WHERE id = @productId
+              AND (sale_status_updated_at IS NULL OR sale_status_updated_at <= @occurredAt)
+        `).run(input);
+        return this.requireProduct(input.productId);
+    }
+
+    hasSaleStatusEvent(messageId: string): boolean {
+        return Boolean(this.database.prepare("SELECT 1 FROM product_sale_events WHERE message_id = ?").get(messageId));
+    }
+
+    deleteGeneratedStatusProduct(messageId: string): void {
+        this.database.prepare("DELETE FROM products WHERE description_message_id = ?").run(messageId);
     }
 
     listProducts(filter: ProductFilter = {}): ProductRecord[] {

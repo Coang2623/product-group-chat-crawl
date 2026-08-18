@@ -59,6 +59,13 @@ export function wireProductPipeline(dependencies: PipelineDependencies): void {
         publishExcelStatus(repository, events);
     });
 
+    zalo.onSaleStatus?.((event) => {
+        const product = coordinator.handleSaleStatus(event);
+        if (product === "ignored" || product === "orphan") return;
+        events.publish({ type: "product.updated", product });
+        publishExcelStatus(repository, events);
+    });
+
     void excelWorker;
 }
 

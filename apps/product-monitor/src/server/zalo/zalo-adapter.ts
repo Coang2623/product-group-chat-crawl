@@ -5,6 +5,7 @@ import type {
     NormalizedDescriptionEvent,
     NormalizedImageEvent,
     NormalizedReactionEvent,
+    NormalizedSaleStatusEvent,
 } from "../../shared/domain.js";
 
 export type ConnectionState =
@@ -89,11 +90,13 @@ export interface ZaloProductAdapter {
     onDescription(handler: (event: NormalizedDescriptionEvent) => void): void;
     onImage(handler: (event: NormalizedImageEvent) => void): void;
     onReaction(handler: (event: NormalizedReactionEvent) => void): void;
+    onSaleStatus?(handler: (event: NormalizedSaleStatusEvent) => void): void;
 }
 
 type HistoryBackfill = {
     groupId: string;
     highWater: number;
+    saleHighWater: number;
     newestTimestamp: number;
     cursor: string | null;
     historicalMessages: Map<string, unknown>;
@@ -112,6 +115,7 @@ export class ZaloAdapter implements ZaloProductAdapter {
     private readonly descriptionHandlers = new Set<(event: NormalizedDescriptionEvent) => void>();
     private readonly imageHandlers = new Set<(event: NormalizedImageEvent) => void>();
     private readonly reactionHandlers = new Set<(event: NormalizedReactionEvent) => void>();
+    private readonly saleStatusHandlers = new Set<(event: NormalizedSaleStatusEvent) => void>();
 
     public constructor(private readonly options: ZaloAdapterOptions) {
         this.login = options.login ?? createDefaultLogin();
@@ -263,6 +267,10 @@ export class ZaloAdapter implements ZaloProductAdapter {
         this.reactionHandlers.add(handler);
     }
 
+    onSaleStatus(handler: (event: NormalizedSaleStatusEvent) => void): void {
+        this.saleStatusHandlers.add(handler);
+    }
+
     handleMessage(raw: unknown): void {
         const event = asRecord(raw);
         const data = asRecord(event?.data);
@@ -278,6 +286,26 @@ export class ZaloAdapter implements ZaloProductAdapter {
         }
         const messageType = stringValue(data.msgType);
         if (messageType === "webchat" && typeof data.content === "string") {
+            const quote = asRecord(data.quote);
+            if (quote) {
+                const targetMessageIds = messageAliases(quote, ["globalMsgId", "cliMsgId"]);
+                if (targetMessageIds.length) {
+                    this.emit(this.saleStatusHandlers, {
+                        groupId,
+                        groupName: this.selectedGroup.name,
+                        senderId,
+                        targetSenderName: stringValue(quote.fromD),
+                        messageId,
+                        messageAliases: messageAliases(data),
+                        targetMessageIds,
+                        targetContent: stringValue(quote.msg),
+                        targetSentAt: numericTimestamp(quote.ts) ?? undefined,
+                        content: data.content,
+                        sentAt,
+                    });
+                    return;
+                }
+            }
             this.emit(this.descriptionHandlers, {
                 groupId,
                 groupName: this.selectedGroup.name,
@@ -286,6 +314,7 @@ export class ZaloAdapter implements ZaloProductAdapter {
                 messageId,
                 content: data.content,
                 sentAt,
+                targetMessageIds: messageAliases(data),
             });
             return;
         }
@@ -298,6 +327,7 @@ export class ZaloAdapter implements ZaloProductAdapter {
                 messageId,
                 imageUrl: href,
                 sentAt,
+                targetMessageIds: messageAliases(data),
             });
             return;
         }
@@ -320,10 +350,16 @@ export class ZaloAdapter implements ZaloProductAdapter {
         const storedHighWater = Number(
             this.options.settings?.getSetting(historyHighWaterKey(groupId)) ?? 0,
         );
+        const storedSaleHighWater = Number(
+            this.options.settings?.getSetting(saleHistoryHighWaterKey(groupId)) ?? 0,
+        );
         this.historyBackfill = {
             groupId,
             highWater: Number.isSafeInteger(storedHighWater) && storedHighWater >= 0
                 ? storedHighWater
+                : 0,
+            saleHighWater: Number.isSafeInteger(storedSaleHighWater) && storedSaleHighWater >= 0
+                ? storedSaleHighWater
                 : 0,
             newestTimestamp: 0,
             cursor: null,
@@ -345,18 +381,26 @@ export class ZaloAdapter implements ZaloProductAdapter {
                 const page = await api.getGroupChatHistoryPage?.(backfill.groupId, cursor);
                 if (!page || this.historyBackfill !== backfill) return;
                 let reachedHighWater = false;
+                let reachedSaleHighWater = false;
                 for (const message of page.groupMsgs) {
                     const identity = messageIdentity(message);
                     if (!identity || identity.groupId !== backfill.groupId) continue;
                     backfill.newestTimestamp = Math.max(backfill.newestTimestamp, identity.sentAt);
                     if (identity.sentAt <= backfill.highWater) {
                         reachedHighWater = true;
-                    } else {
+                    }
+                    if (identity.sentAt <= backfill.saleHighWater) {
+                        reachedSaleHighWater = true;
+                    }
+                    if (
+                        identity.sentAt > backfill.highWater ||
+                        (identity.sentAt > backfill.saleHighWater && isQuotedTextMessage(message))
+                    ) {
                         backfill.historicalMessages.set(identity.messageId, message);
                     }
                 }
                 const nextCursor = stringValue(page.lastMsgId);
-                if (reachedHighWater || !page.hasMore || !nextCursor || nextCursor === cursor) break;
+                if ((reachedHighWater && reachedSaleHighWater) || !page.hasMore || !nextCursor || nextCursor === cursor) break;
                 cursor = nextCursor;
             }
         } catch (error) {
@@ -376,6 +420,7 @@ export class ZaloAdapter implements ZaloProductAdapter {
 
         let oldestBatchMessage: ReturnType<typeof messageIdentity> = null;
         let reachedHighWater = false;
+        let reachedSaleHighWater = false;
         for (const message of raw) {
             const identity = messageIdentity(message);
             if (!identity) continue;
@@ -386,13 +431,16 @@ export class ZaloAdapter implements ZaloProductAdapter {
             backfill.newestTimestamp = Math.max(backfill.newestTimestamp, identity.sentAt);
             if (identity.sentAt <= backfill.highWater) {
                 reachedHighWater = true;
-                continue;
             }
-            backfill.historicalMessages.set(identity.messageId, message);
+            if (identity.sentAt <= backfill.saleHighWater) reachedSaleHighWater = true;
+            if (
+                identity.sentAt > backfill.highWater ||
+                (identity.sentAt > backfill.saleHighWater && isQuotedTextMessage(message))
+            ) backfill.historicalMessages.set(identity.messageId, message);
         }
 
         const nextCursor = oldestBatchMessage?.messageId ?? null;
-        if (reachedHighWater || !nextCursor || nextCursor === backfill.cursor) {
+        if ((reachedHighWater && reachedSaleHighWater) || !nextCursor || nextCursor === backfill.cursor) {
             this.finishHistoryBackfill();
             return;
         }
@@ -423,6 +471,9 @@ export class ZaloAdapter implements ZaloProductAdapter {
         }, backfill.newestTimestamp);
         if (newest > backfill.highWater) {
             this.options.settings?.setSetting(historyHighWaterKey(backfill.groupId), String(newest));
+        }
+        if (newest > backfill.saleHighWater) {
+            this.options.settings?.setSetting(saleHistoryHighWaterKey(backfill.groupId), String(newest));
         }
         this.report("history_backfill_completed", {
             groupId: backfill.groupId,
@@ -536,6 +587,20 @@ const compareMessageIdentity = (left: MessageIdentity, right: MessageIdentity): 
     left.sentAt - right.sentAt || left.messageId.localeCompare(right.messageId);
 
 const historyHighWaterKey = (groupId: string): string => `zaloHistoryHighWater:${groupId}`;
+const saleHistoryHighWaterKey = (groupId: string): string => `zaloSaleHistoryHighWater:${groupId}`;
+
+const messageAliases = (
+    data: Record<string, unknown>,
+    keys: string[] = ["msgId", "cliMsgId"],
+): string[] => [...new Set(keys
+    .map((key) => stringValue(data[key]))
+    .filter((value): value is string => Boolean(value) && value !== "0"))];
+
+const isQuotedTextMessage = (raw: unknown): boolean => {
+    const event = asRecord(raw);
+    const data = asRecord(event?.data);
+    return data?.msgType === "webchat" && typeof data.content === "string" && Boolean(asRecord(data.quote));
+};
 
 const sanitize = (value: unknown): string => {
     const sensitive = /^(content|cookie|token|href|thumb|image|authorization)$/iu;
