@@ -87,6 +87,7 @@ export interface ProductRepository {
     applySaleStatus(input: SaleStatusInput): ProductRecord;
     hasSaleStatusEvent(messageId: string): boolean;
     deleteGeneratedStatusProduct(messageId: string): void;
+    deleteProduct(id: string): void;
     listProducts(filter?: ProductFilter): ProductRecord[];
     addMedia(input: NewProductMedia): ProductMedia;
     getMedia(id: string): ProductMedia | null;
@@ -238,6 +239,10 @@ export class SqliteProductRepository implements ProductRepository {
 
     deleteGeneratedStatusProduct(messageId: string): void {
         this.database.prepare("DELETE FROM products WHERE description_message_id = ?").run(messageId);
+    }
+
+    deleteProduct(id: string): void {
+        this.database.prepare("DELETE FROM products WHERE id = ?").run(id);
     }
 
     listProducts(filter: ProductFilter = {}): ProductRecord[] {

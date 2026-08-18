@@ -7,6 +7,7 @@ import type {
     NormalizedReactionEvent,
     NormalizedSaleStatusEvent,
 } from "../../shared/domain.js";
+import { isProductInformation } from "../parser/product-message-classifier.js";
 
 export type ConnectionState =
     | "signed_out"
@@ -305,6 +306,10 @@ export class ZaloAdapter implements ZaloProductAdapter {
                     });
                     return;
                 }
+            }
+            if (!isProductInformation(data.content)) {
+                this.report("ignored_non_product_text", raw);
+                return;
             }
             this.emit(this.descriptionHandlers, {
                 groupId,

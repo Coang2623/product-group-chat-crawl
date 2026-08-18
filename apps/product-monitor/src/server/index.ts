@@ -10,6 +10,7 @@ import { ExcelSyncWorker } from "./excel/excel-sync-worker.js";
 import { createHttpApp, SseHub } from "./http/app.js";
 import { MediaStore } from "./media/media-store.js";
 import { ProductCoordinator } from "./products/product-coordinator.js";
+import { isProductInformation } from "./parser/product-message-classifier.js";
 import { ReactionAggregator } from "./reactions/reaction-aggregator.js";
 import { ZaloAdapter, type ZaloProductAdapter } from "./zalo/zalo-adapter.js";
 
@@ -94,6 +95,7 @@ export async function startProductMonitor(
     await mkdir(config.dataDirectory, { recursive: true });
     const database = new Database(config.databasePath);
     const repository = new SqliteProductRepository(database);
+    const removedNonProductRows = removeNonProductRows(repository);
     const events = new SseHub();
     const activeGroupId = () => repository.getSetting("activeGroupId");
     const activePublishers = () => parseStoredList(repository.getSetting("activeGroupAdminIds"));
@@ -109,6 +111,10 @@ export async function startProductMonitor(
         onError: (error) => console.error("[media]", safeMessage(error)),
     });
     const excelWorker = new ExcelSyncWorker(repository, config);
+    if (removedNonProductRows > 0) {
+        const rebuildMarker = repository.listProducts({ limit: 1 })[0];
+        if (rebuildMarker) repository.enqueueExcelSync(rebuildMarker.id);
+    }
     const zalo = new ZaloAdapter({
         credentialsPath: config.credentialsPath,
         settings: repository,
@@ -152,6 +158,12 @@ export async function startProductMonitor(
         },
     };
 }
+
+const removeNonProductRows = (repository: ProductRepository): number => repository.runInTransaction(() => {
+    const rows = repository.listProducts().filter((product) => !isProductInformation(product.rawContent));
+    for (const product of rows) repository.deleteProduct(product.id);
+    return rows.length;
+});
 
 const listen = (
     app: ReturnType<typeof createHttpApp>,

@@ -101,6 +101,20 @@ describe("ZaloAdapter", () => {
         }));
     });
 
+    it("ignores ordinary publisher text that is not product information", () => {
+        const onDescription = vi.fn();
+        adapter.onDescription(onDescription);
+
+        adapter.handleMessage(groupText({
+            data: { ...groupText().data, msgId: "dot", content: "." },
+        }));
+        adapter.handleMessage(groupText({
+            data: { ...groupText().data, msgId: "update", content: "M\u00ecnh update l\u1ea1i" },
+        }));
+
+        expect(onDescription).not.toHaveBeenCalled();
+    });
+
     it("normalizes chat.photo href as an image event", () => {
         const onImage = vi.fn();
         adapter.onImage(onImage);
