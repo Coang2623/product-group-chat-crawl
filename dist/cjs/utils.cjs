@@ -269,10 +269,7 @@ async function request(ctx, url, options, raw = false) {
         for (const cookie of splitCookies) {
             const parsed = toughCookie.Cookie.parse(cookie);
             try {
-                if (parsed && isCookieTombstone(parsed)) {
-                    await ctx.cookie.removeCookie(parsed.domain ? parsed.domain.replace(/^\./u, "") : new URL(origin).hostname, parsed.path || "/", parsed.key);
-                }
-                else if (parsed)
+                if (parsed && !isCookieTombstone(parsed))
                     await ctx.cookie.setCookie(parsed, resolveCookieOrigin(parsed, origin));
             }
             catch (error) {
