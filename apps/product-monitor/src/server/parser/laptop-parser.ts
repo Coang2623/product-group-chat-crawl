@@ -58,6 +58,12 @@ export function parseVietnamesePrice(raw: string): number | null {
 }
 
 export function parseLaptopPost(content: string): LaptopParseResult {
+    const legacy = parseLegacyLaptopPost(content);
+    if (legacy.ok) return legacy;
+    return parseModernLaptopPost(content);
+}
+
+const parseLegacyLaptopPost = (content: string): LaptopParseResult => {
     if (DESKTOP_MARKER_PATTERN.test(content)) return unrecognized();
 
     const priceMatch = PRICE_PATTERN.exec(content);
@@ -90,6 +96,72 @@ export function parseLaptopPost(content: string): LaptopParseResult {
 
     return { ok: true, fields };
 }
+
+/** Parser for the current group's Unicode text and shorthand sales format. */
+const parseModernLaptopPost = (content: string): LaptopParseResult => {
+    const normalized = normalizeModern(content);
+    if (/\b(?:desktop|tower|aio|all[ -]?in[ -]?one|prodesk|optiplex|bo may cay|may cay|bo may van phong)\b/iu.test(normalized)) return unrecognized();
+
+    const priceMatch = normalized.match(/\bgia(?:\s+thu\s+ve|\s+ca\s+bo)?\b\s*[:;]?\s*(?:(\d+)\s*(trieu|t)\s*(\d{1,3})?|([0-9]{3,4})(?!\d))/iu);
+    if (!priceMatch) return unrecognized();
+    const primary = normalized.slice(0, priceMatch.index);
+    const firstLine = primary.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+    const candidateName = firstLine?.split(/\s*:\s*/u)[0].replace(/\s*[-–]\s*$/u, "");
+    const productName = candidateName && !/^(?:cpu|chip|core|ram|ssd|nvme|hdd)\b/iu.test(candidateName)
+        ? formatModernProductName(candidateName)
+        : null;
+    const cpuMatch = primary.match(/(?:cpu|chip)?\s*(?:(?:core)\s*)?(i[3579](?:\s*[- ]?\w+)?|ryzen\s*[3579]\s*\w+|m[123](?:\s*(?:pro|max))?|intel\s+(?:ultra\s+\d+\s+\w+|n\d+\w*))/iu);
+    const ramMatch = primary.match(/\bram(?:\s+ddr\d*)?\s*:?[ \t]*(\d+)\s*(?:gb|g)\b/iu);
+    let storageMatches: RegExpMatchArray[] = [...primary.matchAll(/\b(ssd|nvme|hdd)\s*:?[ \t]*(\d+)\s*(gb|tb|b|g)?\b/giu)];
+    if (!storageMatches.length) {
+        storageMatches = [...primary.matchAll(/\b(?:o|bo nho)\s*:?[ \t]*(\d+)\s*(gb|tb|b|g)\b/giu)].map((match) => {
+            const synthetic = [match[0], "ssd", match[1], match[2]] as RegExpMatchArray;
+            return synthetic;
+        });
+    }
+    if (!productName || !cpuMatch || !ramMatch || !storageMatches.length) return unrecognized();
+
+    const millions = priceMatch[1] ? Number(priceMatch[1]) : 0;
+    const fraction = priceMatch[3] ? Number(priceMatch[3].padEnd(3, "0")) : 0;
+    const price = priceMatch[4] ? Number(priceMatch[4]) * 1_000 : millions * 1_000_000 + fraction * 1_000;
+    if (!Number.isSafeInteger(price) || price <= 0) return unrecognized();
+    const storage = storageMatches.map((match) => `${match[1].toUpperCase()} ${match[2]}${(match[3] ?? "GB").replace(/^(?:b|g)$/iu, "GB").toUpperCase()}`).join(" + ");
+    const cpuRaw = cpuMatch[1].replace(/\s+/g, " ").replace(/\s*-\s*/g, " ").trim()
+        .replace(/[a-z]$/iu, (suffix) => suffix.toUpperCase());
+    const cpu = /^(?:i[3579])/iu.test(cpuRaw)
+        ? `Core ${cpuRaw.replace(/^i([3579])/iu, (_value, series: string) => `i${series}`)}`
+        : capitalizeModern(cpuRaw).replace(/[a-z]$/iu, (suffix) => suffix.toUpperCase());
+
+    return {
+        ok: true,
+        fields: {
+            productName,
+            cpu,
+            ram: `${ramMatch[1]}GB`,
+            storage,
+            price,
+            rawPrice: priceMatch[0],
+        },
+    };
+};
+
+const normalizeModern = (content: string): string => content
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/đ/giu, "d")
+    .replace(/\s+/gu, " ");
+
+const formatModernProductName = (value: string): string => value
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map((word) => {
+        const upper = word.toUpperCase();
+        if (/^(?:DELL|HP|ASUS|ACER|MSI|LENOVO|MACBOOK|PROBOOK|VIVOBOOK|THINKPAD|IDEAPAD|PRECISION|PAVILION|INSPIRON|LATITUDE|ZENBOOK|SURFACE)$/u.test(upper)) return upper === "MACBOOK" ? "MacBook" : capitalizeModern(word);
+        return /^\d|^[A-Z]+\d|\d[A-Z]/u.test(word) ? upper : capitalizeModern(word);
+    })
+    .join(" ");
+
+const capitalizeModern = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
 function extractProductName(primaryConfiguration: string): string | null {
     const firstLine = primaryConfiguration.split(/\r?\n/).find((line) => line.trim());

@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { migrate } from "./migrate.js";
+import type { ParsedLaptopFields } from "../parser/laptop-parser.js";
 import type {
     ExcelSyncJob,
     HeartStateInput,
@@ -88,6 +89,7 @@ export interface ProductRepository {
     hasSaleStatusEvent(messageId: string): boolean;
     deleteGeneratedStatusProduct(messageId: string): void;
     deleteProduct(id: string): void;
+    applyParsedFields(id: string, fields: ParsedLaptopFields): ProductRecord;
     listProducts(filter?: ProductFilter): ProductRecord[];
     addMedia(input: NewProductMedia): ProductMedia;
     getMedia(id: string): ProductMedia | null;
@@ -243,6 +245,37 @@ export class SqliteProductRepository implements ProductRepository {
 
     deleteProduct(id: string): void {
         this.database.prepare("DELETE FROM products WHERE id = ?").run(id);
+    }
+
+    applyParsedFields(id: string, fields: ParsedLaptopFields): ProductRecord {
+        this.database.prepare(`
+            UPDATE products SET
+                product_name = @productName,
+                cpu = @cpu,
+                ram = @ram,
+                storage = @storage,
+                gpu = @gpu,
+                display = @display,
+                price = @price,
+                raw_price = @rawPrice,
+                notes = @notes,
+                status = 'completed',
+                updated_at = MAX(updated_at, @updatedAt)
+            WHERE id = @id
+        `).run({
+            id,
+            productName: fields.productName,
+            cpu: fields.cpu,
+            ram: fields.ram,
+            storage: fields.storage,
+            gpu: fields.gpu ?? null,
+            display: fields.display ?? null,
+            price: fields.price,
+            rawPrice: fields.rawPrice,
+            notes: fields.notes ?? null,
+            updatedAt: Date.now(),
+        });
+        return this.requireProduct(id);
     }
 
     listProducts(filter: ProductFilter = {}): ProductRecord[] {

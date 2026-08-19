@@ -11,6 +11,7 @@ import { createHttpApp, SseHub } from "./http/app.js";
 import { MediaStore } from "./media/media-store.js";
 import { ProductCoordinator } from "./products/product-coordinator.js";
 import { isProductInformation } from "./parser/product-message-classifier.js";
+import { parseLaptopPost } from "./parser/laptop-parser.js";
 import { ReactionAggregator } from "./reactions/reaction-aggregator.js";
 import { ZaloAdapter, type ZaloProductAdapter } from "./zalo/zalo-adapter.js";
 
@@ -96,6 +97,7 @@ export async function startProductMonitor(
     const database = new Database(config.databasePath);
     const repository = new SqliteProductRepository(database);
     const removedNonProductRows = removeNonProductRows(repository);
+    const reparsedProducts = reparseNeedsReviewProducts(repository);
     const events = new SseHub();
     const activeGroupId = () => repository.getSetting("activeGroupId");
     const activePublishers = () => parseStoredList(repository.getSetting("activeGroupAdminIds"));
@@ -111,7 +113,7 @@ export async function startProductMonitor(
         onError: (error) => console.error("[media]", safeMessage(error)),
     });
     const excelWorker = new ExcelSyncWorker(repository, config);
-    if (removedNonProductRows > 0) {
+    if (removedNonProductRows > 0 || reparsedProducts > 0) {
         const rebuildMarker = repository.listProducts({ limit: 1 })[0];
         if (rebuildMarker) repository.enqueueExcelSync(rebuildMarker.id);
     }
@@ -163,6 +165,18 @@ const removeNonProductRows = (repository: ProductRepository): number => reposito
     const rows = repository.listProducts().filter((product) => !isProductInformation(product.rawContent));
     for (const product of rows) repository.deleteProduct(product.id);
     return rows.length;
+});
+
+const reparseNeedsReviewProducts = (repository: ProductRepository): number => repository.runInTransaction(() => {
+    let reparsed = 0;
+    for (const product of repository.listProducts({ status: "needs_review" })) {
+        const parsed = parseLaptopPost(product.rawContent);
+        if (!parsed.ok) continue;
+        repository.applyParsedFields(product.id, parsed.fields);
+        repository.enqueueExcelSync(product.id);
+        reparsed += 1;
+    }
+    return reparsed;
 });
 
 const listen = (

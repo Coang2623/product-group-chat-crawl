@@ -154,4 +154,12 @@ describe("parseLaptopPost", () => {
         expect(parseLaptopPost("LENOVO THINKPAD T480 - CPU CORE I5 8250U - RAM 8GB - SSD 256GB - GIÁ 5 TRIỆU"))
             .toMatchObject({ ok: true, fields: { productName: "Lenovo ThinkPad T480" } });
     });
+
+    it.each([
+        ["ASUS VIVOBOOK X412 :\nCPU RYZEN 5 3500U - RAM 8GB - Ổ SSD 256 - CARD AMD VEGA8 2GB - MÀN 14INCH FHD\nGIÁ : 3 TRIỆU 950", "Ryzen 5 3500U", "SSD 256GB", 3_950_000],
+        ["DELL INSPIRON 5459 :\nCPU I5 6200U - RAM 4GB - Ổ SSD 128GB - 14INCH\nGIÁ THU VỀ 1T9", "Core i5 6200U", "SSD 128GB", 1_900_000],
+        ["DELL PRECISION 7510 : CORE I7 6820HQ - RAM 8GB - NVME 256 - CARD QUADRO M1000M - GIÁ THU VỀ 3t950", "Core i7 6820HQ", "NVME 256GB", 3_950_000],
+    ])("parses current group format", (content, cpu, storage, price) => {
+        expect(parseLaptopPost(content)).toMatchObject({ ok: true, fields: { cpu, storage, price } });
+    });
 });
