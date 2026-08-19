@@ -32,6 +32,9 @@ export function App({ api }: { api: ProductMonitorApi }) {
     const [search, setSearch] = useState("");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
+    const [brand, setBrand] = useState("");
+    const [ram, setRam] = useState("");
+    const [sale, setSale] = useState<"all" | "available" | "closed">("all");
 
     const loadProducts = async () => {
         const records = await api.getProducts();
@@ -117,6 +120,9 @@ export function App({ api }: { api: ProductMonitorApi }) {
                 if (filter === "receiving" && product.status !== "receiving_images") return false;
                 if (filter === "review" && product.status !== "needs_review") return false;
                 if (filter === "unsynced" && product.excelSyncStatus === "synced") return false;
+                if (sale !== "all" && product.saleStatus !== sale) return false;
+                if (brand && productBrand(product) !== brand) return false;
+                if (ram && product.ram !== ram) return false;
                 const haystack = [product.productName, product.cpu, product.ram, product.storage]
                     .filter(Boolean).join(" ").toLocaleLowerCase("vi");
                 if (query && !haystack.includes(query)) return false;
@@ -129,7 +135,10 @@ export function App({ api }: { api: ProductMonitorApi }) {
                 const rightActive = right.status === "receiving_images" ? 1 : 0;
                 return rightActive - leftActive || right.postedAt - left.postedAt;
             });
-    }, [filter, maxPrice, minPrice, products, search]);
+    }, [brand, filter, maxPrice, minPrice, products, ram, sale, search]);
+
+    const brandOptions = useMemo(() => [...new Set([...products.values()].map(productBrand).filter(Boolean))].sort(), [products]);
+    const ramOptions = useMemo(() => [...new Set([...products.values()].map((product) => product.ram).filter(Boolean))].sort(), [products]);
 
     const selectGroup = async (group: GroupSummary) => {
         setBusy(true);
@@ -235,6 +244,19 @@ export function App({ api }: { api: ProductMonitorApi }) {
                             <input aria-label="Tìm sản phẩm" placeholder="Tên, CPU, RAM, SSD…" value={search} onChange={(event) => setSearch(event.target.value)} />
                             <input aria-label="Giá tối thiểu" type="number" placeholder="Giá từ" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} />
                             <input aria-label="Giá tối đa" type="number" placeholder="Giá đến" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} />
+                            <select aria-label="Lọc theo hãng" value={brand} onChange={(event) => setBrand(event.target.value)}>
+                                <option value="">Tất cả hãng</option>
+                                {brandOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                            <select aria-label="Lọc theo RAM" value={ram} onChange={(event) => setRam(event.target.value)}>
+                                <option value="">Tất cả RAM</option>
+                                {ramOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                            </select>
+                            <select aria-label="Lọc theo trạng thái bán" value={sale} onChange={(event) => setSale(event.target.value as typeof sale)}>
+                                <option value="all">Còn / hết hàng</option>
+                                <option value="available">Còn hàng</option>
+                                <option value="closed">Đã chốt</option>
+                            </select>
                         </div>
                     </section>
                     <div className="product-layout">
@@ -249,4 +271,10 @@ export function App({ api }: { api: ProductMonitorApi }) {
 
 const initials = (name: string) =>
     name.split(/\s+/u).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+const productBrand = (product: ProductRecord) => {
+    if (product.brand) return product.brand;
+    const name = product.productName?.trim() ?? "";
+    const known = /^(acer|asus|dell|hp|lenovo|msi|apple|macbook|lg|microsoft|samsung|toshiba|fujitsu|gigabyte|huawei)\b/iu.exec(name);
+    return known?.[1] ? known[1][0].toUpperCase() + known[1].slice(1).toLowerCase() : "Khác";
+};
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Đã xảy ra lỗi";

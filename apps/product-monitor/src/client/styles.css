@@ -260,7 +260,8 @@ button:disabled { cursor: wait; opacity: .58; }
 }
 .filter-tabs button.is-active { color: #155fdc; background: #eaf1ff; font-weight: 750; }
 .filter-inputs { display: flex; gap: 7px; }
-.filter-inputs input {
+.filter-inputs input,
+.filter-inputs select {
     width: 104px;
     min-height: 31px;
     padding: 7px 9px;
@@ -271,7 +272,8 @@ button:disabled { cursor: wait; opacity: .58; }
     font-size: 10px;
 }
 .filter-inputs input:first-child { width: 190px; }
-.filter-inputs input:focus { border-color: #1769ff; box-shadow: 0 0 0 3px #1769ff18; }
+.filter-inputs input:focus,
+.filter-inputs select:focus { border-color: #1769ff; box-shadow: 0 0 0 3px #1769ff18; }
 
 .product-layout {
     display: grid;
@@ -482,7 +484,7 @@ td small { margin-top: 3px; color: #8c98aa; font-size: 8px; }
     .topbar { padding: 14px 16px; }
     .content { padding: 12px; }
     .filter-tabs, .filter-inputs { width: 100%; overflow-x: auto; }
-    .filter-inputs input, .filter-inputs input:first-child { min-width: 145px; }
+    .filter-inputs input, .filter-inputs select, .filter-inputs input:first-child { min-width: 145px; }
     .auth-shell { grid-template-columns: 1fr; }
     .auth-story { min-height: 360px; padding: 28px; }
     .auth-stage { padding: 22px 14px; }
