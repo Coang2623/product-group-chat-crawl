@@ -45,6 +45,10 @@ const productFromRow = (row: ProductRow): ProductRecord => ({
     coverImagePath: optionalString(row.cover_image_path),
     mediaDirectory: String(row.media_directory),
     heartCount: Number(row.heart_count),
+    repostCount: Number(row.repost_count ?? 0),
+    lastPostedAt: row.last_posted_at === null || row.last_posted_at === undefined
+        ? undefined
+        : Number(row.last_posted_at),
     saleStatus: (row.sale_status ?? "available") as ProductRecord["saleStatus"],
     saleStatusMessageId: optionalString(row.sale_status_message_id),
     saleStatusText: optionalString(row.sale_status_text),
@@ -89,6 +93,9 @@ export interface ProductRepository {
      * so the newest description alone is not a reliable target.
      */
     findImageAttachmentTarget(input: ImageAttachmentQuery): ProductRecord | null;
+    /** Existing row for the same machine, matched on identical post text in one group. */
+    findRepostTarget(groupId: string, rawContent: string): ProductRecord | null;
+    recordRepost(productId: string, postedAt: number): ProductRecord;
     recordOrphanMedia(input: NewOrphanMedia): void;
     listOrphanMedia(): OrphanMedia[];
     deleteOrphanMedia(messageId: string): void;
@@ -199,6 +206,39 @@ export class SqliteProductRepository implements ProductRepository {
             input.sentAt,
             input.sentAt - input.windowMs,
         ));
+    }
+
+    findRepostTarget(groupId: string, rawContent: string): ProductRecord | null {
+        return this.productOrNull(this.database.prepare(`
+            SELECT * FROM products
+            WHERE group_id = ? AND raw_content = ?
+            ORDER BY posted_at
+            LIMIT 1
+        `).get(groupId, rawContent));
+    }
+
+    recordRepost(productId: string, postedAt: number): ProductRecord {
+        return this.database.transaction(() => {
+            // Reposting offers the machine again, so it reopens for images and returns to
+            // "available"; the unique index allows only one receiving product at a time.
+            const reopens = !this.getActiveProduct();
+            this.database.prepare(`
+                UPDATE products
+                SET repost_count = repost_count + 1,
+                    last_posted_at = MAX(COALESCE(last_posted_at, posted_at), @postedAt),
+                    sale_status = 'available',
+                    sale_status_message_id = NULL,
+                    sale_status_text = NULL,
+                    sale_status_updated_at = NULL,
+                    status = CASE
+                        WHEN @reopens = 1 AND status = 'completed' THEN 'receiving_images'
+                        ELSE status
+                    END,
+                    updated_at = @postedAt
+                WHERE id = @productId
+            `).run({ productId, postedAt, reopens: reopens ? 1 : 0 });
+            return this.requireProduct(productId);
+        })();
     }
 
     recordOrphanMedia(input: NewOrphanMedia): void {

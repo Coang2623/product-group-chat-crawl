@@ -136,17 +136,46 @@ const parseModernLaptopPost = (content: string): LaptopParseResult => {
         ? `Core ${cpuRaw.replace(/^i([3579])/iu, (_value, series: string) => `i${series}`)}`
         : formatCpuWords(cpuRaw);
 
-    return {
-        ok: true,
-        fields: {
-            productName,
-            cpu,
-            ram: `${ramMatch[1]}GB`,
-            storage,
-            price,
-            rawPrice: priceMatch[0],
-        },
+    const fields: ParsedLaptopFields = {
+        productName,
+        cpu,
+        ram: `${ramMatch[1]}GB`,
+        storage,
+        price,
+        rawPrice: priceMatch[0],
     };
+    // Read these from the original text: the modern pass strips diacritics, which would
+    // store "MAN 15.6 INCH CAM UNG" instead of the readable Vietnamese value.
+    const gpu = extractOptionalGpu(content);
+    const display = extractOptionalDisplay(content);
+    if (gpu) fields.gpu = gpu;
+    if (display) fields.display = display;
+
+    return { ok: true, fields };
+};
+
+/** Card is written many ways ("CARD GTX960M", "GPU RTX 3050 6GB", bare "QUADRO T1200"). */
+const GPU_LABELLED_PATTERN = /\b(?:CARD|GPU|VGA)\s*(?:RỜI|ROI)?\s*:?\s*([^\-–\n|]{2,44})/iu;
+const GPU_BARE_PATTERN = /\b((?:NVIDIA|NIVIDIA|AMD|INTEL)?\s*(?:GTX|RTX|QUADRO|RADEON|VEGA|IRIS|MX|RX)\s*[A-Z0-9]+(?:\s*TI)?(?:\s*\d+\s*GB?)?)/iu;
+/** Display may omit the "MÀN" label entirely: "15.6INCH FHD IPS". */
+const DISPLAY_LABELLED_PATTERN = /\b(?:MÀN(?:\s*HÌNH)?|MAN(?:\s*HINH)?)\s*:?\s*([^\-–\n|]{2,44})/iu;
+const DISPLAY_BARE_PATTERN = /\b(\d{2}(?:[.,]\d)?\s*(?:INCH|")(?:\s+(?:FHD|FULLHD|FULL\s*HD|HD\+?|OLED|IPS|2K|4K|RETINA|QHD|TOUCH|CẢM\s*ỨNG|CAM\s*UNG)){0,3})/iu;
+
+const extractOptionalGpu = (content: string): string | null => {
+    const labelled = content.match(GPU_LABELLED_PATTERN)?.[1];
+    const value = labelled ?? content.match(GPU_BARE_PATTERN)?.[1];
+    if (!value) return null;
+    const cleaned = collapseWhitespace(value).replace(/[,;.]+$/u, "");
+    // A label with no value after it ("CARD RỜI") must not be stored as a GPU.
+    return cleaned.length >= 3 && /[A-Z0-9]/iu.test(cleaned) ? cleaned.toUpperCase() : null;
+};
+
+const extractOptionalDisplay = (content: string): string | null => {
+    const labelled = content.match(DISPLAY_LABELLED_PATTERN)?.[1];
+    const value = labelled ?? content.match(DISPLAY_BARE_PATTERN)?.[1];
+    if (!value) return null;
+    const cleaned = collapseWhitespace(value).replace(/[,;.]+$/u, "");
+    return cleaned.length >= 2 ? cleaned.toUpperCase() : null;
 };
 
 const normalizeModern = (content: string): string => content
@@ -213,12 +242,13 @@ function extractStorage(primaryConfiguration: string): string | null {
 
 function extractGpu(primaryConfiguration: string): string | null {
     const value = primaryConfiguration.match(CORE_FIELD_PATTERNS.gpu)?.[1];
-    return value ? formatWords(value) : null;
+    return value ? formatWords(value) : extractOptionalGpu(primaryConfiguration);
 }
 
 function extractDisplay(primaryConfiguration: string): string | null {
     const value = primaryConfiguration.match(CORE_FIELD_PATTERNS.display)?.[1];
-    return value ? collapseWhitespace(value).toUpperCase() : null;
+    // Falls back to the unlabelled form ("15.6INCH FHD"), which has no "MÀN" prefix.
+    return value ? collapseWhitespace(value).toUpperCase() : extractOptionalDisplay(primaryConfiguration);
 }
 
 function collectNotes(primaryConfiguration: string, contentAfterPrice: string): string | null {

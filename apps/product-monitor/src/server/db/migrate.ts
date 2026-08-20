@@ -36,9 +36,13 @@ CREATE TABLE IF NOT EXISTS products (
   sale_status_updated_at INTEGER,
   status TEXT NOT NULL,
   excel_sync_status TEXT NOT NULL,
+  repost_count INTEGER NOT NULL DEFAULT 0,
+  last_posted_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS products_repost_lookup
+ON products(group_id, raw_content);
 CREATE UNIQUE INDEX IF NOT EXISTS one_receiving_product
 ON products(status) WHERE status = 'receiving_images';
 CREATE TABLE IF NOT EXISTS product_media (
@@ -116,6 +120,10 @@ export const migrate = (database: Database.Database): void => {
             ["sale_status_message_id", "TEXT"],
             ["sale_status_text", "TEXT"],
             ["sale_status_updated_at", "INTEGER"],
+            // A machine that did not sell is posted again; the repost updates the
+            // original row instead of adding a second row for the same machine.
+            ["repost_count", "INTEGER NOT NULL DEFAULT 0"],
+            ["last_posted_at", "INTEGER"],
         ] as const;
         for (const [name, definition] of additions) {
             if (!productColumns.some((column) => column.name === name)) {

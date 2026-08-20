@@ -106,6 +106,7 @@ describe("ExcelSyncWorker", () => {
             "Số ảnh",
             "Thư mục ảnh",
             "Số tym",
+            "Số lần đăng lại",
             "Trạng thái bán",
             "Trạng thái",
             "Nội dung gốc",

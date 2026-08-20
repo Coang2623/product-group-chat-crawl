@@ -33,6 +33,9 @@ export type ProductRecord = {
     saleStatusUpdatedAt?: number;
     status: ProductStatus;
     excelSyncStatus: ExcelSyncStatus;
+    /** How many times this same machine was posted again after the first listing. */
+    repostCount: number;
+    lastPostedAt?: number;
     createdAt: number;
     updatedAt: number;
 };

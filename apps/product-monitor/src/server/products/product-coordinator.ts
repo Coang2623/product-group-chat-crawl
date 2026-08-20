@@ -26,12 +26,20 @@ export const DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS = 15 * 60 * 1000;
  */
 export const DEFAULT_IDLE_DRAFT_TIMEOUT_MS = DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS;
 
+/**
+ * A machine that did not sell is re-listed hours or days later. Identical text within
+ * the same posting session is instead two machines of the same model, or a double-send,
+ * so only a repost separated by this much time folds into the original row.
+ */
+export const DEFAULT_REPOST_MIN_GAP_MS = 6 * 60 * 60 * 1000;
+
 export type ProductCoordinatorOptions = {
     activeGroupId: string | (() => string | null);
     publisherId: string | (() => string | string[] | null);
     mediaRoot: string;
     imageAttachmentWindowMs?: number;
     idleDraftTimeoutMs?: number;
+    repostMinimumGapMs?: number;
 };
 
 export class ProductCoordinator {
@@ -54,6 +62,21 @@ export class ProductCoordinator {
             return this.repository.runInTransaction(() => {
                 const completed = this.repository.completeActiveProduct(event.sentAt);
                 if (completed) this.repository.enqueueExcelSync(completed.id);
+
+                // An unsold machine is posted again word for word. Counting it as a new
+                // product would inflate the Excel row count above the real stock.
+                const repostTarget = this.findRepost(event);
+                if (repostTarget) {
+                    const updated = this.repository.recordRepost(repostTarget.id, event.sentAt);
+                    this.repository.linkMessage(
+                        updated.id,
+                        event.targetMessageIds ?? [event.messageId],
+                        "description",
+                        event.sentAt,
+                    );
+                    this.repository.enqueueExcelSync(updated.id);
+                    return updated;
+                }
 
                 const parsed = parseLaptopPost(event.content);
                 const product = this.repository.createProduct(
@@ -201,6 +224,15 @@ export class ProductCoordinator {
      * configured publisher. Without the fallback every burst-posted product loses its
      * photos, because the next description closes the draft within seconds.
      */
+    /** The same machine re-listed later, as opposed to a second unit posted right now. */
+    private findRepost(event: NormalizedDescriptionEvent): ProductRecord | null {
+        const minimumGap = this.options.repostMinimumGapMs ?? DEFAULT_REPOST_MIN_GAP_MS;
+        const candidate = this.repository.findRepostTarget(event.groupId, event.content);
+        if (!candidate) return null;
+        const lastPostedAt = candidate.lastPostedAt ?? candidate.postedAt;
+        return event.sentAt - lastPostedAt >= minimumGap ? candidate : null;
+    }
+
     private resolveImageTarget(sentAt: number): ProductRecord | null {
         const groupId = this.activeGroupId();
         const publisherIds = this.publisherIds();
@@ -265,6 +297,7 @@ const mapDescriptionToNewProduct = (
         imageCount: 0,
         mediaDirectory: productMediaDirectory(mediaRoot, event.sentAt, id),
         heartCount: 0,
+        repostCount: 0,
         saleStatus: "available",
         status: parsed.ok ? "receiving_images" : "needs_review",
         excelSyncStatus: "pending",

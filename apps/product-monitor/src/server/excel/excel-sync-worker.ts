@@ -46,6 +46,7 @@ const HEADERS = [
     "Số ảnh",
     "Thư mục ảnh",
     "Số tym",
+    "Số lần đăng lại",
     "Trạng thái bán",
     "Trạng thái",
     "Nội dung gốc",
@@ -230,6 +231,7 @@ export class ExcelSyncWorker {
                         hyperlink: pathToFileURL(product.mediaDirectory).href,
                     },
                     product.heartCount,
+                    product.repostCount,
                     saleStatus(product.saleStatus),
                     productStatus(product.status),
                     product.rawContent,
@@ -250,9 +252,10 @@ export class ExcelSyncWorker {
         header.alignment = { vertical: "middle", horizontal: "center" };
         header.height = 24;
         sheet.views = [{ state: "frozen", ySplit: 1 }];
-        sheet.autoFilter = { from: "A1", to: "W1" };
+        sheet.autoFilter = { from: "A1", to: "X1" };
         sheet.columns.forEach((column, index) => {
-            column.width = index === 3 ? 16 : index === 21 ? 45 : index === 17 ? 22 : 18;
+            // 3 = cover image, 22 = raw content, 17 = media folder link.
+            column.width = index === 3 ? 16 : index === 22 ? 45 : index === 17 ? 22 : 18;
         });
     }
 

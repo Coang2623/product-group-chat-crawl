@@ -187,6 +187,33 @@ describe("parseLaptopPost", () => {
         )).toMatchObject({ ok: true, fields: { price } });
     });
 
+    it.each([
+        ["DELL GAMING 7559 :\nCPU I5 6300HQ - RAM 8GB - SSD 128GB - CARD GTX960M - 15.6INCH FHD\nGIÁ 3 TRIỆU", "GTX960M"],
+        ["DELL PRECISION 3561 :\nCHIP I7 11850H - RAM 16GB - Ổ SSD 512GB - CARD QUADRO T1200\nGIÁ THU VỀ 9", "QUADRO T1200"],
+        ["ASUS TUF :\nCPU I5 10300H - RAM 8GB - SSD 512GB - NVIDIA GTX1650 4G - 15.6 INCH\nGIÁ 10 TRIỆU", "NVIDIA GTX1650 4G"],
+    ])("extracts the graphics card from the current group format", (content, gpu) => {
+        expect(parseLaptopPost(content)).toMatchObject({ ok: true, fields: { gpu } });
+    });
+
+    it.each([
+        ["MÀN 15.6 INCH FULLHD", "15.6 INCH FULLHD"],
+        ["MÀN 14INCH FHD IPS", "14INCH FHD IPS"],
+        // The label is often dropped entirely.
+        ["15.6INCH FHD", "15.6INCH FHD"],
+        ["13.3 INCH 2K RETINA", "13.3 INCH 2K RETINA"],
+    ])("extracts the display with or without its label (%s)", (displayText, display) => {
+        expect(parseLaptopPost(
+            `HP LAPTOP 15 :\nCPU I5 1135G7 - RAM 8GB - Ổ SSD 256GB - ${displayText}\nGIÁ 5 TRIỆU`,
+        )).toMatchObject({ ok: true, fields: { display } });
+    });
+
+    it("does not invent a GPU from a label with no model after it", () => {
+        const parsed = parseLaptopPost(
+            "HP LAPTOP 15 :\nCPU I5 1135G7 - RAM 8GB - Ổ SSD 256GB - MÀN 15.6 FHD\nGIÁ 5 TRIỆU",
+        );
+        expect(parsed.ok && parsed.fields.gpu).toBeFalsy();
+    });
+
     it("uppercases chip model codes rather than title-casing them", () => {
         expect(parseLaptopPost(
             "LENOVO IDEAPAD 120S :\nCHIP INTEL N3350 - RAM 2GB - SSD 32GB\nGIÁ THU VỀ 800",

@@ -46,7 +46,8 @@ describe("ProductCoordinator", () => {
         );
     });
 
-    it("does not deduplicate matching product content from different description messages", () => {
+    it("keeps matching content posted in the same session as two separate machines", () => {
+        // Two units of the same model listed back to back, not a re-listing.
         const content = descriptionEvent().content;
 
         const first = coordinator.handleDescription(descriptionEvent({ messageId: "m1", content, sentAt: 100 }));
@@ -306,6 +307,8 @@ describe("ProductCoordinator", () => {
         messageIds.forEach((messageId, index) => {
             const product = coordinator.handleDescription(descriptionEvent({
                 messageId,
+                // Distinct text per iteration: identical text days apart is a repost.
+                content: `DELL LATITUDE 74${index}0 :\nCPU CORE I5 8350U - RAM 8GB - Ổ SSD 256GB\nGIÁ 5 TRIỆU`,
                 sentAt: Date.parse(`2026-07-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`),
             }));
             const relativePath = relative(monthRoot, product.mediaDirectory);
@@ -383,6 +386,67 @@ describe("ProductCoordinator", () => {
             expect(media.sourceMessageId).toBe(messageId);
         });
         expect(repo.listMedia(product.id)).toHaveLength(messageIds.length);
+    });
+
+    describe("reposted machines", () => {
+        const DAY = 24 * 60 * 60 * 1000;
+
+        it("updates the original row instead of adding a second one", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+
+            const second = coordinator.handleDescription(descriptionEvent({ messageId: "d2", sentAt: 1_000 + DAY }));
+
+            expect(second.id).toBe(first.id);
+            expect(repo.listProducts()).toHaveLength(1);
+            expect(second.repostCount).toBe(1);
+            expect(second.lastPostedAt).toBe(1_000 + DAY);
+        });
+
+        it("keeps the first posting date so the listing history is not lost", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            const second = coordinator.handleDescription(descriptionEvent({ messageId: "d2", sentAt: 1_000 + DAY }));
+
+            expect(second.postedAt).toBe(first.postedAt);
+        });
+
+        it("returns a resold machine to available", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            repo.applySaleStatus({
+                productId: first.id,
+                messageId: "sold-1",
+                targetMessageId: "d1",
+                status: "closed",
+                rawContent: "đã cọc",
+                occurredAt: 2_000,
+            });
+
+            const reposted = coordinator.handleDescription(descriptionEvent({ messageId: "d2", sentAt: 1_000 + DAY }));
+
+            expect(reposted.saleStatus).toBe("available");
+        });
+
+        it("counts a different machine as its own product", () => {
+            coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+
+            coordinator.handleDescription(descriptionEvent({
+                messageId: "d2",
+                sentAt: 1_000 + DAY,
+                content: "DELL LATITUDE 7490 :\nCPU CORE I5 8350U - RAM 8GB - Ổ SSD 256GB\nGIÁ 5 TRIỆU",
+            }));
+
+            expect(repo.listProducts()).toHaveLength(2);
+        });
+
+        it("attaches images from the repost to the same machine", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.completeActive(2_000);
+            coordinator.handleDescription(descriptionEvent({ messageId: "d2", sentAt: 1_000 + DAY }));
+
+            const media = coordinator.handleImage(imageEvent({ messageId: "img", sentAt: 1_000 + DAY + 500 }));
+
+            if (media === "orphan") throw new Error("Expected media to attach");
+            expect(media.productId).toBe(first.id);
+        });
     });
 
     describe("idle draft timeout", () => {
