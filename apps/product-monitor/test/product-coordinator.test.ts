@@ -388,6 +388,155 @@ describe("ProductCoordinator", () => {
         expect(repo.listMedia(product.id)).toHaveLength(messageIds.length);
     });
 
+    describe("images sent before their description", () => {
+        const MINUTE = 60 * 1000;
+        const otherMachine = (sentAt: number) => descriptionEvent({
+            messageId: "d2",
+            sentAt,
+            content: "MSI BRAVO GAMING 15 :\nCPU RYZEN 5 4600H - RAM 8GB - Ổ SSD 256GB\nGIÁ THU VỀ 7 TRIỆU",
+        });
+
+        it("reclaims a trailing burst for the machine described right after it", () => {
+            // Description A, A's photos, then B's photos, then description B.
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 3_000 }));
+            const describedAt = 3_000 + 5 * MINUTE;
+            coordinator.handleImage(imageEvent({ messageId: "b1", sentAt: describedAt - 20_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "b2", sentAt: describedAt - 10_000 }));
+
+            const second = coordinator.handleDescription(otherMachine(describedAt));
+
+            expect(repo.listMedia(second.id).map((media) => media.sourceMessageId)).toEqual(["b1", "b2"]);
+            expect(repo.listMedia(first.id).map((media) => media.sourceMessageId)).toEqual(["a1", "a2"]);
+        });
+
+        it("renumbers both machines contiguously after the move", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 3_000 }));
+            const describedAt = 3_000 + 5 * MINUTE;
+            coordinator.handleImage(imageEvent({ messageId: "b1", sentAt: describedAt - 20_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "b2", sentAt: describedAt - 10_000 }));
+
+            const second = coordinator.handleDescription(otherMachine(describedAt));
+
+            expect(repo.listMedia(second.id).map((media) => media.sequence)).toEqual([1, 2]);
+            expect(repo.listMedia(first.id).map((media) => media.sequence)).toEqual([1, 2]);
+        });
+
+        it("leaves images alone when they arrived long before the description", () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 3_000 }));
+
+            const second = coordinator.handleDescription(otherMachine(3_000 + 5 * MINUTE));
+
+            expect(repo.listMedia(first.id)).toHaveLength(2);
+            expect(repo.listMedia(second.id)).toHaveLength(0);
+        });
+
+        it("never strips the previous machine of every photo it has", () => {
+            // Every photo it holds falls in the window, so there is no evidence they
+            // are not simply its own.
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 2_500 }));
+
+            const second = coordinator.handleDescription(otherMachine(3_000));
+
+            expect(repo.listMedia(first.id)).toHaveLength(2);
+            expect(repo.listMedia(second.id)).toHaveLength(0);
+        });
+    });
+
+    describe("manual media moves", () => {
+        const MINUTE = 60 * 1000;
+        const twoMachines = () => {
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 3_000 }));
+            const second = coordinator.handleDescription(descriptionEvent({
+                messageId: "d2",
+                sentAt: 3_000 + 5 * MINUTE,
+                content: "MSI BRAVO GAMING 15 - CPU RYZEN 5 4600H - RAM 8GB - Ổ SSD 256GB - GIÁ THU VỀ 7 TRIỆU",
+            }));
+            return { first, second };
+        };
+
+        it("moves the chosen photos onto the other machine", () => {
+            const { first, second } = twoMachines();
+            const [wrong] = repo.listMedia(first.id);
+
+            const result = coordinator.moveMedia([wrong.id], second.id);
+
+            expect(result).toMatchObject({ moved: 1 });
+            expect(repo.listMedia(second.id).map((media) => media.sourceMessageId)).toEqual(["a1"]);
+            expect(repo.listMedia(first.id).map((media) => media.sourceMessageId)).toEqual(["a2"]);
+        });
+
+        it("renumbers both galleries contiguously", () => {
+            const { first, second } = twoMachines();
+
+            coordinator.moveMedia([repo.listMedia(first.id)[0].id], second.id);
+
+            expect(repo.listMedia(first.id).map((media) => media.sequence)).toEqual([1]);
+            expect(repo.listMedia(second.id).map((media) => media.sequence)).toEqual([1]);
+        });
+
+        it("refreshes the image count on both sides so the table is not stale", () => {
+            const { first, second } = twoMachines();
+            // Only downloaded photos are counted, so the summary needs real files.
+            for (const media of repo.listMedia(first.id)) {
+                repo.updateMedia(media.id, { downloadStatus: "downloaded", localPath: `${media.id}.jpg` });
+            }
+            repo.updateProductMediaSummary(first.id);
+
+            const result = coordinator.moveMedia(repo.listMedia(first.id).map((media) => media.id), second.id);
+
+            expect(result).not.toBe("unknown_media");
+            expect(repo.getProduct(first.id)?.imageCount).toBe(0);
+            expect(repo.getProduct(second.id)?.imageCount).toBe(2);
+        });
+
+        it("queues an Excel rewrite for every machine it touched", () => {
+            const { first, second } = twoMachines();
+            for (const product of [first, second]) repo.completeExcelJob(product.id);
+
+            coordinator.moveMedia([repo.listMedia(first.id)[0].id], second.id);
+
+            expect(repo.listPendingExcelJobs().map((job) => job.productId).sort())
+                .toEqual([first.id, second.id].sort());
+        });
+
+        it("does no work when the photos already belong to the target", () => {
+            const { first, second } = twoMachines();
+            for (const product of [first, second]) repo.completeExcelJob(product.id);
+
+            const result = coordinator.moveMedia([repo.listMedia(first.id)[0].id], first.id);
+
+            expect(result).toMatchObject({ moved: 0 });
+            expect(repo.listPendingExcelJobs()).toHaveLength(0);
+        });
+
+        it("refuses an unknown target rather than orphaning the photos", () => {
+            const { first } = twoMachines();
+            const media = repo.listMedia(first.id).map((item) => item.id);
+
+            expect(coordinator.moveMedia(media, "no-such-product")).toBe("unknown_product");
+            expect(repo.listMedia(first.id)).toHaveLength(2);
+        });
+
+        it("rejects the whole batch when one photo does not exist", () => {
+            const { first, second } = twoMachines();
+            const [real] = repo.listMedia(first.id);
+
+            expect(coordinator.moveMedia([real.id, "no-such-media"], second.id)).toBe("unknown_media");
+            expect(repo.listMedia(first.id)).toHaveLength(2);
+            expect(repo.listMedia(second.id)).toHaveLength(0);
+        });
+    });
+
     describe("reposted machines", () => {
         const DAY = 24 * 60 * 60 * 1000;
 

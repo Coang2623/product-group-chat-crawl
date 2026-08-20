@@ -380,6 +380,9 @@ export class ZaloAdapter implements ZaloProductAdapter {
         const content = asRecord(data.content);
         const href = stringValue(content?.href);
         if (messageType === "chat.photo" && href) {
+            // Photos and descriptions arrive in no fixed order and Zalo sends no album
+            // key, so no automatic rule can always pick the right machine. The window
+            // heuristic is a best guess; the UI lets the operator move images by hand.
             this.emit(this.imageHandlers, {
                 groupId,
                 senderId,

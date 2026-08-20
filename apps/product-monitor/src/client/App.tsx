@@ -29,6 +29,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
     const [syncing, setSyncing] = useState(false);
     const [selected, setSelected] = useState<ProductDetail>();
     const [completing, setCompleting] = useState(false);
+    const [moving, setMoving] = useState(false);
     const [markupPercent, setMarkupPercent] = useState(
         () => loadMarkupPercent(typeof localStorage === "undefined" ? undefined : localStorage),
     );
@@ -142,6 +143,15 @@ export function App({ api }: { api: ProductMonitorApi }) {
             });
     }, [brand, filter, maxPrice, minPrice, products, ram, sale, search]);
 
+    // Any machine may be the right home for a stray photo, so this ignores the filters
+    // the table uses -- only the machine already showing the photos is excluded.
+    const moveCandidates = useMemo(
+        () => [...products.values()]
+            .filter((product) => product.id !== selected?.product.id)
+            .sort((left, right) => right.postedAt - left.postedAt),
+        [products, selected?.product.id],
+    );
+
     const brandOptions = useMemo(() => [...new Set([...products.values()].map(productBrand).filter(Boolean))].sort(), [products]);
     const ramOptions = useMemo(() => [...new Set([...products.values()].map((product) => product.ram).filter(Boolean))].sort(), [products]);
 
@@ -178,6 +188,31 @@ export function App({ api }: { api: ProductMonitorApi }) {
             setError(errorMessage(reason));
         } finally {
             setCompleting(false);
+        }
+    };
+
+    /**
+     * Photos land on the wrong machine when Zalo interleaves them with descriptions.
+     * The moved images leave this gallery, so the open detail is reloaded from the
+     * server rather than patched from the products already in memory.
+     */
+    const moveMedia = async (mediaIds: string[], toProductId: string): Promise<boolean> => {
+        if (!selected || !mediaIds.length) return false;
+        setMoving(true);
+        try {
+            const updated = await api.moveMedia(mediaIds, toProductId);
+            setProducts((current) => {
+                const next = new Map(current);
+                for (const product of updated) next.set(product.id, product);
+                return next;
+            });
+            setSelected(await api.getProduct(selected.product.id));
+            return true;
+        } catch (reason) {
+            setError(errorMessage(reason));
+            return false;
+        } finally {
+            setMoving(false);
         }
     };
 
@@ -288,7 +323,16 @@ export function App({ api }: { api: ProductMonitorApi }) {
                     </section>
                     <div className="product-layout">
                         <ProductTable products={visibleProducts} selectedId={selected?.product.id} markupPercent={markupPercent} onSelect={(item) => void openDetail(item)} />
-                        {selected && <ProductDetailPanel detail={selected} completing={completing} markupPercent={markupPercent} onClose={() => setSelected(undefined)} onComplete={() => void completeSelected()} />}
+                        {selected && <ProductDetailPanel
+                            detail={selected}
+                            completing={completing}
+                            moving={moving}
+                            markupPercent={markupPercent}
+                            moveCandidates={moveCandidates}
+                            onClose={() => setSelected(undefined)}
+                            onComplete={() => void completeSelected()}
+                            onMoveMedia={moveMedia}
+                        />}
                     </div>
                 </div>
             </main>

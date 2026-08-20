@@ -94,6 +94,9 @@ export interface ProductRepository {
      */
     findImageAttachmentTarget(input: ImageAttachmentQuery): ProductRecord | null;
     /** Existing row for the same machine, matched on identical post text in one group. */
+    /** Media added to `fromProductId` at or after `since`, oldest first. */
+    listMediaAddedSince(productId: string, since: number): ProductMedia[];
+    reassignMedia(mediaIds: string[], toProductId: string): void;
     findRepostTarget(groupId: string, rawContent: string): ProductRecord | null;
     recordRepost(productId: string, postedAt: number): ProductRecord;
     recordOrphanMedia(input: NewOrphanMedia): void;
@@ -206,6 +209,54 @@ export class SqliteProductRepository implements ProductRepository {
             input.sentAt,
             input.sentAt - input.windowMs,
         ));
+    }
+
+    listMediaAddedSince(productId: string, since: number): ProductMedia[] {
+        return (this.database.prepare(
+            "SELECT * FROM product_media WHERE product_id = ? AND created_at >= ? ORDER BY created_at, sequence",
+        ).all(productId, since) as MediaRow[]).map(mediaFromRow);
+    }
+
+    reassignMedia(mediaIds: string[], toProductId: string): void {
+        if (!mediaIds.length) return;
+        this.database.transaction(() => {
+            const sources = new Set(
+                (this.database.prepare(
+                    `SELECT DISTINCT product_id FROM product_media WHERE id IN (${
+                        mediaIds.map(() => "?").join(", ")})`,
+                ).all(...mediaIds) as Array<{ product_id: string }>).map((row) => row.product_id),
+            );
+            sources.delete(toProductId);
+
+            const highest = this.database
+                .prepare("SELECT COALESCE(MAX(sequence), 0) AS value FROM product_media WHERE product_id = ?")
+                .get(toProductId) as { value: number };
+            let sequence = Number(highest.value);
+            // Park each row on a free negative sequence first: the source and target may
+            // otherwise collide on the unique (product_id, sequence) index mid-move.
+            const park = this.database.prepare("UPDATE product_media SET sequence = ? WHERE id = ?");
+            for (const [index, mediaId] of mediaIds.entries()) park.run(-(index + 1), mediaId);
+            const move = this.database.prepare(
+                "UPDATE product_media SET product_id = ?, sequence = ? WHERE id = ?",
+            );
+            for (const mediaId of mediaIds) {
+                sequence += 1;
+                move.run(toProductId, sequence, mediaId);
+            }
+            // Taking photos out of the middle of a gallery leaves holes, which show up
+            // as gaps in the exported filenames.
+            for (const productId of sources) this.compactSequences(productId);
+        })();
+    }
+
+    private compactSequences(productId: string): void {
+        const rows = this.database.prepare(
+            "SELECT id, sequence FROM product_media WHERE product_id = ? ORDER BY sequence, id",
+        ).all(productId) as Array<{ id: string; sequence: number }>;
+        const park = this.database.prepare("UPDATE product_media SET sequence = ? WHERE id = ?");
+        // Park first for the same reason as above: 3 -> 2 collides while 2 still exists.
+        for (const [index, row] of rows.entries()) park.run(-(index + 1), row.id);
+        for (const [index, row] of rows.entries()) park.run(index + 1, row.id);
     }
 
     findRepostTarget(groupId: string, rawContent: string): ProductRecord | null {

@@ -18,6 +18,8 @@ export interface ProductMonitorApi {
     getProducts(): Promise<ProductRecord[]>;
     getProduct(id: string): Promise<ProductDetail>;
     completeProduct(id: string): Promise<ProductRecord>;
+    /** Reattaches mis-assigned photos; returns every product whose gallery changed. */
+    moveMedia(mediaIds: string[], toProductId: string): Promise<ProductRecord[]>;
     syncExcel(): Promise<{ synced: number; blocked: number; failed: number }>;
     subscribe(handler: (event: ProductMonitorEvent) => void): () => void;
 }
@@ -55,6 +57,12 @@ export const browserApi: ProductMonitorApi = {
             { method: "POST" },
         )
     ).product,
+    moveMedia: async (mediaIds, toProductId) => (
+        await request<{ products: ProductRecord[] }>("/api/media/move", {
+            method: "POST",
+            body: JSON.stringify({ mediaIds, toProductId }),
+        })
+    ).products,
     syncExcel: () => request("/api/excel/sync", { method: "POST" }),
     subscribe: (handler) => {
         const source = new EventSource("/api/events");

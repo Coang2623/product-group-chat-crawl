@@ -1,32 +1,58 @@
 import { useEffect, useState } from "react";
+import type { ProductRecord } from "../../shared/domain.js";
 import type { ProductDetail } from "../api.js";
 import { commission, formatDong, sellingPrice, specsForCopywriting } from "../selling.js";
 import { ImageLightbox } from "./ImageLightbox.js";
+import { MediaMoveBar } from "./MediaMoveBar.js";
 
 type ProductDetailPanelProps = {
     detail: ProductDetail;
     completing: boolean;
+    moving: boolean;
     markupPercent: number;
+    moveCandidates: ProductRecord[];
     onClose(): void;
     onComplete(): void;
+    onMoveMedia(mediaIds: string[], toProductId: string): Promise<boolean>;
 };
 
 export function ProductDetailPanel({
     detail,
     completing,
+    moving,
     markupPercent,
+    moveCandidates,
     onClose,
     onComplete,
+    onMoveMedia,
 }: ProductDetailPanelProps) {
     const { product, media } = detail;
     const downloaded = media.filter((item) => item.downloadStatus === "downloaded");
     const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [selecting, setSelecting] = useState(false);
 
     // Images stream in while a product is still receiving them, so a stored index can
     // outlive the image it pointed at.
     useEffect(() => {
         setZoomedIndex((current) => (current === null || current < downloaded.length ? current : null));
     }, [downloaded.length]);
+
+    // Switching machines must not carry a selection onto a gallery it does not belong to.
+    useEffect(() => {
+        setSelectedIds([]);
+        setSelecting(false);
+    }, [product.id]);
+
+    const toggle = (id: string) => setSelectedIds((current) =>
+        current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+
+    const moveSelected = async (toProductId: string) => {
+        if (await onMoveMedia(selectedIds, toProductId)) {
+            setSelectedIds([]);
+            setSelecting(false);
+        }
+    };
 
     return (
         <aside className="detail-panel" aria-label="Chi tiết sản phẩm">
@@ -35,25 +61,44 @@ export function ProductDetailPanel({
                 <button className="icon-button" aria-label="Đóng chi tiết" onClick={onClose}>×</button>
             </header>
             <div className="detail-panel__body">
-                <div className="gallery">
+                <div className={selecting ? "gallery gallery--selecting" : "gallery"}>
                     {downloaded.map((item, index) => (
                         <button
                             key={item.id}
                             type="button"
-                            className="gallery__item"
-                            aria-label={`Phóng to ảnh ${index + 1}`}
-                            onClick={() => setZoomedIndex(index)}
+                            className={selectedIds.includes(item.id) ? "gallery__item is-selected" : "gallery__item"}
+                            aria-label={selecting ? `Chọn ảnh ${index + 1}` : `Phóng to ảnh ${index + 1}`}
+                            aria-pressed={selecting ? selectedIds.includes(item.id) : undefined}
+                            onClick={() => (selecting ? toggle(item.id) : setZoomedIndex(index))}
                         >
                             <img
                                 src={`/api/media/${encodeURIComponent(item.id)}`}
                                 alt={`Ảnh sản phẩm ${index + 1}`}
                             />
+                            {selecting && <span className="gallery__tick" aria-hidden="true">✓</span>}
                         </button>
                     ))}
                     {!downloaded.length && (
                         <div className="gallery__empty">Chưa tải được ảnh</div>
                     )}
                 </div>
+                {Boolean(downloaded.length) && !selecting && (
+                    <button className="button button--ghost" onClick={() => setSelecting(true)}>
+                        Chuyển ảnh sang máy khác
+                    </button>
+                )}
+                {selecting && (
+                    <MediaMoveBar
+                        selectedCount={selectedIds.length}
+                        candidates={moveCandidates}
+                        moving={moving}
+                        onMove={(toProductId) => void moveSelected(toProductId)}
+                        onCancel={() => {
+                            setSelectedIds([]);
+                            setSelecting(false);
+                        }}
+                    />
+                )}
                 {zoomedIndex !== null && (
                     <ImageLightbox
                         images={downloaded.map((item, index) => ({
