@@ -61,6 +61,7 @@ const createApi = (overrides: Partial<ProductMonitorApi> = {}) => {
             }],
         }),
         completeProduct: vi.fn().mockResolvedValue({ ...product, status: "completed" }),
+        moveMedia: vi.fn().mockResolvedValue([]),
         syncExcel: vi.fn().mockResolvedValue({ synced: 1, blocked: 0, failed: 0 }),
         subscribe: vi.fn().mockImplementation((listener) => {
             handler = listener;
@@ -221,6 +222,134 @@ describe("Product Monitor UI", () => {
 
         expect(within(dialog).queryByLabelText("Ảnh sau")).not.toBeInTheDocument();
         expect(within(dialog).getByText("1 / 1")).toBeInTheDocument();
+    });
+
+    describe("moving photos to another machine", () => {
+        const other: ProductRecord = {
+            ...product,
+            id: "product-2",
+            descriptionMessageId: "message-2",
+            productName: "MSI Bravo 15",
+            brand: "MSI",
+            postedAt: product.postedAt + 60_000,
+        };
+
+        const twoMachineApi = () => createApi({
+            getProducts: vi.fn().mockResolvedValue([product, other]),
+            getProduct: vi.fn().mockResolvedValue({
+                product,
+                media: [1, 2].map((sequence) => ({
+                    id: `media-${sequence}`,
+                    productId: product.id,
+                    sourceMessageId: `image-${sequence}`,
+                    sequence,
+                    localPath: `00${sequence}.jpg`,
+                    downloadStatus: "downloaded" as const,
+                    createdAt: sequence,
+                })),
+            }),
+        });
+
+        const enterSelection = async () => {
+            fireEvent.click(await screen.findByLabelText("Xem chi tiết HP ZBook 15 G3"));
+            const panel = await screen.findByRole("complementary", { name: "Chi tiết sản phẩm" });
+            fireEvent.click(within(panel).getByRole("button", { name: "Chuyển ảnh sang máy khác" }));
+            return panel;
+        };
+
+        it("sends the selected photos to the chosen machine", async () => {
+            const { api } = twoMachineApi();
+            render(<App api={api} />);
+
+            const panel = await enterSelection();
+            fireEvent.click(within(panel).getByLabelText("Chọn ảnh 1"));
+            fireEvent.change(within(panel).getByLabelText("Máy nhận ảnh"), {
+                target: { value: other.id },
+            });
+            fireEvent.click(within(panel).getByRole("button", { name: "Chuyển ảnh" }));
+
+            await waitFor(() => expect(api.moveMedia).toHaveBeenCalledWith(["media-1"], other.id));
+        });
+
+        it("never offers the machine already showing the photos as a target", async () => {
+            const { api } = twoMachineApi();
+            render(<App api={api} />);
+
+            const panel = await enterSelection();
+
+            const options = within(panel).getByLabelText("Máy nhận ảnh")
+                .querySelectorAll("option");
+            expect([...options].map((option) => option.value)).toEqual(["", other.id]);
+        });
+
+        it("keeps the move disabled until both a photo and a machine are chosen", async () => {
+            const { api } = twoMachineApi();
+            render(<App api={api} />);
+
+            const panel = await enterSelection();
+            const move = within(panel).getByRole("button", { name: "Chuyển ảnh" });
+            expect(move).toBeDisabled();
+
+            fireEvent.click(within(panel).getByLabelText("Chọn ảnh 1"));
+            expect(move).toBeDisabled();
+
+            fireEvent.change(within(panel).getByLabelText("Máy nhận ảnh"), {
+                target: { value: other.id },
+            });
+            expect(move).toBeEnabled();
+            expect(api.moveMedia).not.toHaveBeenCalled();
+        });
+
+        it("reloads the gallery so moved photos leave the panel", async () => {
+            const { api } = twoMachineApi();
+            (api.moveMedia as ReturnType<typeof vi.fn>).mockResolvedValue([
+                { ...product, imageCount: 1 },
+                { ...other, imageCount: 1 },
+            ]);
+            render(<App api={api} />);
+
+            const panel = await enterSelection();
+            fireEvent.click(within(panel).getByLabelText("Chọn ảnh 1"));
+            (api.getProduct as ReturnType<typeof vi.fn>).mockResolvedValue({
+                product: { ...product, imageCount: 1 },
+                media: [{
+                    id: "media-2",
+                    productId: product.id,
+                    sourceMessageId: "image-2",
+                    sequence: 1,
+                    localPath: "001.jpg",
+                    downloadStatus: "downloaded" as const,
+                    createdAt: 2,
+                }],
+            });
+            fireEvent.change(within(panel).getByLabelText("Máy nhận ảnh"), {
+                target: { value: other.id },
+            });
+            fireEvent.click(within(panel).getByRole("button", { name: "Chuyển ảnh" }));
+
+            await waitFor(() => expect(
+                within(panel).getAllByRole("img", { name: /Ảnh sản phẩm/ }),
+            ).toHaveLength(1));
+            // Selection mode closes, so the zoom label is back.
+            expect(within(panel).getByLabelText("Phóng to ảnh 1")).toBeInTheDocument();
+        });
+
+        it("stays in selection mode when the move fails", async () => {
+            const { api } = twoMachineApi();
+            (api.moveMedia as ReturnType<typeof vi.fn>)
+                .mockRejectedValue(new Error("Không tìm thấy ảnh"));
+            render(<App api={api} />);
+
+            const panel = await enterSelection();
+            fireEvent.click(within(panel).getByLabelText("Chọn ảnh 1"));
+            fireEvent.change(within(panel).getByLabelText("Máy nhận ảnh"), {
+                target: { value: other.id },
+            });
+            fireEvent.click(within(panel).getByRole("button", { name: "Chuyển ảnh" }));
+
+            expect(await screen.findByRole("alert")).toHaveTextContent("Không tìm thấy ảnh");
+            expect(within(panel).getByLabelText("Chọn ảnh 1")).toHaveAttribute("aria-pressed", "true");
+        });
     });
 
     it("shows group selection before loading products", async () => {

@@ -132,6 +132,78 @@ describe("product monitor HTTP app", () => {
         await request(app).post(`/api/products/${product.id}/complete`).expect(409);
     });
 
+    describe("manual media moves", () => {
+        const twoMachines = () => {
+            const first = coordinator.handleDescription(descriptionEvent({ groupId: "g1", messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleImage({
+                groupId: "g1", senderId: "admin-1", messageId: "a1",
+                imageUrl: "https://example.test/a1.jpg", sentAt: 2_000,
+            });
+            const second = coordinator.handleDescription(descriptionEvent({
+                groupId: "g1", messageId: "d2", sentAt: 2_000 + 10 * 60 * 1000,
+                content: "MSI BRAVO GAMING 15 - CPU RYZEN 5 4600H - RAM 8GB - Ổ SSD 256GB - GIÁ THU VỀ 7 TRIỆU",
+            }));
+            return { first, second, mediaId: repository.listMedia(first.id)[0].id };
+        };
+
+        it("moves photos and reports both machines back", async () => {
+            const { first, second, mediaId } = twoMachines();
+
+            const response = await request(app)
+                .post("/api/media/move")
+                .send({ mediaIds: [mediaId], toProductId: second.id })
+                .expect(200);
+
+            expect(response.body.moved).toBe(1);
+            expect((response.body.products as Array<{ id: string }>).map((item) => item.id).sort())
+                .toEqual([first.id, second.id].sort());
+            expect(repository.listMedia(second.id)).toHaveLength(1);
+            expect(repository.listMedia(first.id)).toHaveLength(0);
+        });
+
+        it("notifies the UI so both galleries refresh", async () => {
+            const events: unknown[] = [];
+            const hub = new SseHub();
+            hub.subscribe((event) => events.push(event));
+            app = createHttpApp({ repository, coordinator, excelWorker, zalo, events: hub });
+            const { first, second, mediaId } = twoMachines();
+
+            await request(app)
+                .post("/api/media/move")
+                .send({ mediaIds: [mediaId], toProductId: second.id })
+                .expect(200);
+
+            const updated = events
+                .filter((event): event is { type: string; product: { id: string } } =>
+                    (event as { type?: string }).type === "product.updated")
+                .map((event) => event.product.id);
+            expect(updated).toEqual(expect.arrayContaining([first.id, second.id]));
+        });
+
+        it("rejects an unknown target and an unknown photo", async () => {
+            const { second, mediaId } = twoMachines();
+
+            await request(app)
+                .post("/api/media/move")
+                .send({ mediaIds: [mediaId], toProductId: "missing-product" })
+                .expect(404, { error: { code: "product_not_found", message: "Không tìm thấy sản phẩm đích" } });
+
+            await request(app)
+                .post("/api/media/move")
+                .send({ mediaIds: ["missing-media"], toProductId: second.id })
+                .expect(404, { error: { code: "media_not_found", message: "Không tìm thấy ảnh" } });
+        });
+
+        it("refuses a request with no photos in it", async () => {
+            const { second } = twoMachines();
+
+            await request(app)
+                .post("/api/media/move")
+                .send({ mediaIds: [], toProductId: second.id })
+                .expect(400);
+        });
+    });
+
     it("returns not found for an unknown product", async () => {
         await request(app).get("/api/products/missing-product").expect(404, {
             error: { code: "product_not_found", message: "Không tìm thấy sản phẩm" },

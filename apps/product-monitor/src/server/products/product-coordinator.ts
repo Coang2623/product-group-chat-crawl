@@ -51,6 +51,12 @@ export type ProductCoordinatorOptions = {
     leadingImageWindowMs?: number;
 };
 
+/** Either the products a manual move touched, or why it could not be made. */
+export type MediaMoveResult =
+    | { moved: number; products: ProductRecord[] }
+    | "unknown_product"
+    | "unknown_media";
+
 export class ProductCoordinator {
     public constructor(
         private readonly repository: ProductRepository,
@@ -218,6 +224,43 @@ export class ProductCoordinator {
             const completed = this.repository.completeActiveProduct(now);
             if (completed) this.repository.enqueueExcelSync(completed.id);
             return completed;
+        });
+    }
+
+    /**
+     * Moves images between machines by hand. Zalo sends photos and descriptions in no
+     * fixed order and supplies no album key, so automatic attachment is a best guess
+     * that sometimes lands photos on the neighbouring machine; this is the repair.
+     * Returns both affected products so the caller can refresh either side.
+     */
+    moveMedia(mediaIds: string[], toProductId: string): MediaMoveResult {
+        return this.repository.runInTransaction(() => {
+            const target = this.repository.getProduct(toProductId);
+            if (!target) return "unknown_product";
+
+            const media = mediaIds.map((id) => this.repository.getMedia(id));
+            if (media.some((item) => item === null)) return "unknown_media";
+
+            const sources = new Set(
+                media
+                    .map((item) => item!.productId)
+                    .filter((productId) => productId !== toProductId),
+            );
+            // Nothing actually moves, so skip the churn of a rewrite and a sync job.
+            if (!sources.size) return { moved: 0, products: [target] };
+
+            this.repository.reassignMedia(mediaIds, toProductId);
+            const touched = [...sources, toProductId];
+            for (const productId of touched) {
+                this.repository.updateProductMediaSummary(productId);
+                this.repository.enqueueExcelSync(productId);
+            }
+            return {
+                moved: mediaIds.length,
+                products: touched
+                    .map((productId) => this.repository.getProduct(productId))
+                    .filter((product): product is ProductRecord => product !== null),
+            };
         });
     }
 

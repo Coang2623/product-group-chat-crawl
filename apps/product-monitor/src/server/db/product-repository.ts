@@ -220,6 +220,14 @@ export class SqliteProductRepository implements ProductRepository {
     reassignMedia(mediaIds: string[], toProductId: string): void {
         if (!mediaIds.length) return;
         this.database.transaction(() => {
+            const sources = new Set(
+                (this.database.prepare(
+                    `SELECT DISTINCT product_id FROM product_media WHERE id IN (${
+                        mediaIds.map(() => "?").join(", ")})`,
+                ).all(...mediaIds) as Array<{ product_id: string }>).map((row) => row.product_id),
+            );
+            sources.delete(toProductId);
+
             const highest = this.database
                 .prepare("SELECT COALESCE(MAX(sequence), 0) AS value FROM product_media WHERE product_id = ?")
                 .get(toProductId) as { value: number };
@@ -235,7 +243,20 @@ export class SqliteProductRepository implements ProductRepository {
                 sequence += 1;
                 move.run(toProductId, sequence, mediaId);
             }
+            // Taking photos out of the middle of a gallery leaves holes, which show up
+            // as gaps in the exported filenames.
+            for (const productId of sources) this.compactSequences(productId);
         })();
+    }
+
+    private compactSequences(productId: string): void {
+        const rows = this.database.prepare(
+            "SELECT id, sequence FROM product_media WHERE product_id = ? ORDER BY sequence, id",
+        ).all(productId) as Array<{ id: string; sequence: number }>;
+        const park = this.database.prepare("UPDATE product_media SET sequence = ? WHERE id = ?");
+        // Park first for the same reason as above: 3 -> 2 collides while 2 still exists.
+        for (const [index, row] of rows.entries()) park.run(-(index + 1), row.id);
+        for (const [index, row] of rows.entries()) park.run(index + 1, row.id);
     }
 
     findRepostTarget(groupId: string, rawContent: string): ProductRecord | null {

@@ -34,6 +34,11 @@ const identifier = z.string()
     .refine((value) => value !== "." && value !== ".." && !value.includes(".."));
 const activeGroupBody = z.object({ groupId: identifier }).strict();
 const productParams = z.object({ id: identifier });
+// One post's worth of photos at most; a larger batch is a bug, not an operator action.
+const mediaMoveBody = z.object({
+    mediaIds: z.array(identifier).min(1).max(100),
+    toProductId: identifier,
+}).strict();
 const listQuery = z.object({
     groupId: identifier.optional(),
     status: z.enum(["receiving_images", "completed", "needs_review"]).optional(),
@@ -177,6 +182,26 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
             response.sendFile(resolve(media.localPath), (error) => {
                 if (error && !response.headersSent) next(error);
             });
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    app.post("/api/media/move", (request, response, next) => {
+        try {
+            const { mediaIds, toProductId } = parse(mediaMoveBody, request.body);
+            const result = coordinator.moveMedia(mediaIds, toProductId);
+            if (result === "unknown_product") {
+                throw new ApiError(404, "product_not_found", "Không tìm thấy sản phẩm đích");
+            }
+            if (result === "unknown_media") {
+                throw new ApiError(404, "media_not_found", "Không tìm thấy ảnh");
+            }
+            for (const product of result.products) {
+                events.publish({ type: "product.updated", product });
+            }
+            publishExcelStatus(repository, events);
+            response.json(result);
         } catch (error) {
             next(error);
         }

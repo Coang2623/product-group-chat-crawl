@@ -240,6 +240,9 @@ button:disabled { cursor: wait; opacity: .58; }
 .button--primary { color: white; border-color: #1769ff; background: #1769ff; }
 .button--secondary { color: #31415d; border-color: #d6deea; background: white; }
 .button--warning { color: #765000; border-color: #e7c56c; background: #fff; }
+.button--ghost { color: #5b6b85; border-color: transparent; background: #f3f6fa; }
+.button--ghost:hover { background: #e8eef7; }
+.button:disabled { opacity: .5; cursor: not-allowed; }
 
 .filters {
     display: flex;
@@ -421,6 +424,49 @@ td small { margin-top: 3px; color: #8c98aa; font-size: 8px; }
     .lightbox { padding: 16px; gap: 4px; }
     .lightbox__nav { width: 36px; height: 36px; font-size: 24px; }
 }
+.gallery--selecting .gallery__item { cursor: pointer; position: relative; }
+.gallery--selecting .gallery__item img { opacity: .6; }
+.gallery__item.is-selected img { opacity: 1; outline: 3px solid #1769ff; outline-offset: -3px; }
+.gallery__tick {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border: 1px solid #ffffff;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 35%);
+    color: transparent;
+    font-size: 11px;
+    font-weight: 700;
+}
+.gallery__item.is-selected .gallery__tick { background: #1769ff; color: white; }
+
+.media-move {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 1px solid #cfe0ff;
+    border-radius: 7px;
+    background: #f2f7ff;
+}
+.media-move__count { flex: 1 0 100%; color: #31415d; font-size: 10px; font-weight: 700; }
+.media-move input, .media-move select {
+    flex: 1 1 140px;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid #d6deea;
+    border-radius: 6px;
+    background: white;
+    font: inherit;
+    font-size: 11px;
+}
+
 .gallery__empty { grid-column: 1 / -1; padding: 32px 10px; border-radius: 7px; color: #8a96a8; background: #f3f6fa; text-align: center; font-size: 10px; }
 .section-heading { display: flex; justify-content: space-between; color: #6b7890; font-size: 8px; font-weight: 750; }
 .section-heading b { color: #168654; }
