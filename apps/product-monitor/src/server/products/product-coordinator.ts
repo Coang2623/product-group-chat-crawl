@@ -292,9 +292,10 @@ export class ProductCoordinator {
         const all = this.repository.listMedia(previous.id);
         const leading = all.filter((media) =>
             media.createdAt >= describedAt - window && media.createdAt <= describedAt);
-        // Everything the previous machine has arrived in this window, so there is no
-        // evidence these photos are not simply its own; leave them where they are.
-        if (!leading.length || leading.length >= all.length) return product;
+        if (!leading.length) return product;
+        if (leading.length >= all.length && !this.belongToLaterPost(all, previous, describedAt)) {
+            return product;
+        }
 
         this.repository.reassignMedia(leading.map((media) => media.id), product.id);
         this.repository.updateProductMediaSummary(previous.id);
@@ -302,6 +303,28 @@ export class ProductCoordinator {
         this.repository.enqueueExcelSync(previous.id);
         this.repository.enqueueExcelSync(product.id);
         return this.repository.getProduct(product.id) ?? product;
+    }
+
+    /**
+     * Decides who owns a burst when it is every photo the previous machine has. A
+     * publisher sends a machine's photos right after describing it, so photos that
+     * started long after that description but seconds before the next one are a lead-in
+     * to the next machine, not a late delivery for the previous one.
+     *
+     * Without this, a machine whose photos were all sent ahead of its description keeps
+     * none at all and the machine before it keeps a double set.
+     */
+    private belongToLaterPost(
+        media: ProductMedia[],
+        previous: ProductRecord,
+        describedAt: number,
+    ): boolean {
+        const first = media[0]?.createdAt;
+        if (first === undefined) return false;
+        // Deliberately postedAt, not lastPostedAt: a repost stamps a date later than
+        // these photos, which would make the gap negative and always vote "keep".
+        const sincePreviousPost = first - previous.postedAt;
+        return sincePreviousPost > describedAt - first;
     }
 
     /** The same machine re-listed later, as opposed to a second unit posted right now. */

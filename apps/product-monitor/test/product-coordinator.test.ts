@@ -436,9 +436,9 @@ describe("ProductCoordinator", () => {
             expect(repo.listMedia(second.id)).toHaveLength(0);
         });
 
-        it("never strips the previous machine of every photo it has", () => {
-            // Every photo it holds falls in the window, so there is no evidence they
-            // are not simply its own.
+        it("leaves a whole set that followed hard on the previous description", () => {
+            // The publisher described, then sent photos a second later: the normal
+            // ordering, so they are the previous machine's own.
             const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
             coordinator.handleImage(imageEvent({ messageId: "a1", sentAt: 2_000 }));
             coordinator.handleImage(imageEvent({ messageId: "a2", sentAt: 2_500 }));
@@ -447,6 +447,33 @@ describe("ProductCoordinator", () => {
 
             expect(repo.listMedia(first.id)).toHaveLength(2);
             expect(repo.listMedia(second.id)).toHaveLength(0);
+        });
+
+        it("hands over a whole set that arrived nearer this description than the last", () => {
+            // The previous machine's photos never came; this burst leads its own post.
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            const describedAt = 1_000 + 4 * MINUTE;
+            coordinator.handleImage(imageEvent({ messageId: "b1", sentAt: describedAt - 30_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "b2", sentAt: describedAt - 28_000 }));
+
+            const second = coordinator.handleDescription(otherMachine(describedAt));
+
+            expect(repo.listMedia(second.id).map((media) => media.sourceMessageId)).toEqual(["b1", "b2"]);
+            expect(repo.listMedia(first.id)).toHaveLength(0);
+        });
+
+        it("does not let a repost date decide who owns the burst", () => {
+            // lastPostedAt would sit after these photos and force a wrong "keep".
+            const DAY = 24 * 60 * 60 * 1000;
+            const first = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+            coordinator.handleDescription(descriptionEvent({ messageId: "d1b", sentAt: 1_000 + DAY }));
+            expect(repo.getProduct(first.id)?.repostCount).toBe(1);
+
+            const describedAt = 1_000 + DAY + 4 * MINUTE;
+            coordinator.handleImage(imageEvent({ messageId: "b1", sentAt: describedAt - 30_000 }));
+            const second = coordinator.handleDescription(otherMachine(describedAt));
+
+            expect(repo.listMedia(second.id).map((media) => media.sourceMessageId)).toEqual(["b1"]);
         });
     });
 
