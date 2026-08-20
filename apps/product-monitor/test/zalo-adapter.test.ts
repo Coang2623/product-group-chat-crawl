@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +31,7 @@ describe("ZaloAdapter", () => {
     let api: ZaloApiFacade;
     let login: ZaloLoginFacade;
     let adapter: ZaloAdapter;
+    let onDiagnostic: ReturnType<typeof vi.fn>;
 
     beforeEach(async () => {
         directory = await mkdtemp(join(tmpdir(), "zalo-adapter-"));
@@ -68,10 +69,11 @@ describe("ZaloAdapter", () => {
                 return api;
             }),
         };
+        onDiagnostic = vi.fn();
         adapter = new ZaloAdapter({
             login,
             credentialsPath: join(directory, "credentials.json"),
-            onDiagnostic: vi.fn(),
+            onDiagnostic,
         });
         await adapter.beginQrLogin(() => undefined);
         await adapter.selectGroup("g1");
@@ -182,6 +184,44 @@ describe("ZaloAdapter", () => {
             rType: 5,
         }));
         expect(onReaction).toHaveBeenNthCalledWith(2, expect.objectContaining({ active: false }));
+    });
+
+    it("accepts reaction content delivered as a JSON string", () => {
+        // The old_reactions replay (cmd 610/611) does not JSON.parse content the way
+        // live reactions (cmd 612) do, so the adapter must handle both shapes.
+        const onReaction = vi.fn();
+        adapter.onReaction(onReaction);
+        const base = groupReaction();
+
+        adapter.handleReaction({
+            ...base,
+            data: { ...base.data, content: JSON.stringify(base.data.content) },
+        });
+
+        expect(onReaction).toHaveBeenCalledWith(expect.objectContaining({
+            targetMessageIds: ["message-1", "client-1"],
+            userId: "user-1",
+            active: true,
+            rType: 5,
+        }));
+    });
+
+    it("reports why a reaction was rejected without echoing message text", () => {
+        const base = groupReaction();
+
+        adapter.handleReaction({
+            ...base,
+            data: { ...base.data, content: "{not json" },
+        });
+
+        expect(onDiagnostic).toHaveBeenCalledWith(
+            "invalid_reaction",
+            expect.stringContaining("no_target_messages"),
+        );
+        expect(onDiagnostic).toHaveBeenCalledWith(
+            "invalid_reaction",
+            expect.stringContaining("unparseable_string"),
+        );
     });
 
     it("lists normalized groups and persists the selected group", async () => {
@@ -313,5 +353,89 @@ describe("ZaloAdapter", () => {
         expect(states).toEqual(["waiting_for_scan", "waiting_for_confirmation", "connected"]);
         expect(persisted).toMatchObject({ imei: "imei", userAgent: "agent" });
         expect(adapter.getConnectionState()).toBe("connected");
+    });
+
+    describe("session restore resilience", () => {
+        const credentialsPath = () => join(directory, "restore-credentials.json");
+
+        const restoringAdapter = async (loginImpl: ZaloLoginFacade["login"]) => {
+            await writeFile(
+                credentialsPath(),
+                JSON.stringify({ imei: "imei", userAgent: "agent", cookie: [] }),
+            );
+            const diagnostics: Array<[string, string]> = [];
+            const restoring = new ZaloAdapter({
+                credentialsPath: credentialsPath(),
+                login: { ...login, login: loginImpl },
+                sessionRestoreAttempts: 3,
+                sleep: async () => undefined,
+                onDiagnostic: (code, event) => diagnostics.push([code, event]),
+            });
+            return { restoring, diagnostics };
+        };
+
+        it("retries a network failure and recovers without a new QR scan", async () => {
+            const networkError = Object.assign(new Error("connect"), { code: "ECONNRESET" });
+            const loginImpl = vi.fn()
+                .mockRejectedValueOnce(networkError)
+                .mockResolvedValueOnce(api);
+            const { restoring, diagnostics } = await restoringAdapter(loginImpl);
+
+            await expect(restoring.restoreSession()).resolves.toBe(true);
+
+            expect(loginImpl).toHaveBeenCalledTimes(2);
+            expect(restoring.getConnectionState()).toBe("connected");
+            expect(diagnostics.map(([code]) => code)).toEqual(["session_restore_retrying"]);
+        });
+
+        it("keeps the session recoverable when the network never comes back", async () => {
+            const loginImpl = vi.fn().mockRejectedValue(
+                Object.assign(new Error("dns"), { code: "EAI_AGAIN" }),
+            );
+            const { restoring, diagnostics } = await restoringAdapter(loginImpl);
+
+            await expect(restoring.restoreSession()).resolves.toBe(false);
+
+            expect(loginImpl).toHaveBeenCalledTimes(3);
+            // "disconnected", not "signed_out": the stored credentials were never rejected.
+            expect(restoring.getConnectionState()).toBe("disconnected");
+            expect(diagnostics.at(-1)?.[1]).toContain("network");
+        });
+
+        it("signs out immediately when Zalo rejects the stored session", async () => {
+            const loginImpl = vi.fn().mockRejectedValue(new Error("session expired"));
+            const { restoring, diagnostics } = await restoringAdapter(loginImpl);
+
+            await expect(restoring.restoreSession()).resolves.toBe(false);
+
+            // A rejected session must not be retried; only a QR re-scan can fix it.
+            expect(loginImpl).toHaveBeenCalledTimes(1);
+            expect(restoring.getConnectionState()).toBe("signed_out");
+            expect(diagnostics.map(([code]) => code)).toEqual(["session_restore_failed"]);
+            expect(diagnostics[0][1]).toContain("rejected");
+        });
+
+        it("treats a missing credentials file as a normal first run", async () => {
+            const onDiagnostic = vi.fn();
+            const fresh = new ZaloAdapter({
+                credentialsPath: join(directory, "does-not-exist.json"),
+                login,
+                onDiagnostic,
+            });
+
+            await expect(fresh.restoreSession()).resolves.toBe(false);
+            expect(onDiagnostic).not.toHaveBeenCalled();
+        });
+
+        it("does not leak cookies or tokens into diagnostics", async () => {
+            const loginImpl = vi.fn().mockRejectedValue(
+                Object.assign(new Error("zpsid=secret-cookie-value"), { code: "EAI_AGAIN" }),
+            );
+            const { restoring, diagnostics } = await restoringAdapter(loginImpl);
+
+            await restoring.restoreSession();
+
+            expect(diagnostics.map(([, event]) => event).join("")).not.toContain("secret-cookie-value");
+        });
     });
 });

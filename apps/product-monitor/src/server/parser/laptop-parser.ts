@@ -15,7 +15,9 @@ export type LaptopParseResult =
     | { ok: false; fields: Record<string, never>; reason: "structure_not_recognized" };
 
 const CORE_FIELD_PATTERNS = {
-    cpu: /\b(?:CPU\s*)?(?:CORE\s+I([3579])\s*[- ]?\s*([A-Z0-9]+)|(M[123]))\b/i,
+    // The model suffix is optional: MacBook posts write "CPU CORE I5" with no generation.
+    // It must look like a real model (digit-led, e.g. 8250U) so the next label is not consumed.
+    cpu: /\b(?:CPU\s*)?(?:CORE\s+I([3579])(?:\s*[- ]?\s*(\d[A-Z0-9]*))?|(M[123]))\b/i,
     ram: /\bRAM\s*:?\s*(\d+\s*GB)\b/i,
     storage: /\b(?:Ổ\s*)?(SSD|HDD)\s*:?\s*(\d+\s*(?:GB|TB))\b/i,
     gpu: /\b(?:CARD|GPU)\s*:?\s*([^\-–\n]+)/i,
@@ -102,7 +104,9 @@ const parseModernLaptopPost = (content: string): LaptopParseResult => {
     const normalized = normalizeModern(content);
     if (/\b(?:desktop|tower|aio|all[ -]?in[ -]?one|prodesk|optiplex|bo may cay|may cay|bo may van phong)\b/iu.test(normalized)) return unrecognized();
 
-    const priceMatch = normalized.match(/\bgia(?:\s+thu\s+ve|\s+ca\s+bo)?\b\s*[:;]?\s*(?:(\d+)\s*(trieu|t)\s*(\d{1,3})?|([0-9]{3,4})(?!\d))/iu);
+    // "GIA THU VE 6" means 6 million, while "GIA THU VE 800" means 800 thousand:
+    // a bare 1-2 digit number is millions, a bare 3-4 digit number is thousands.
+    const priceMatch = normalized.match(/\bgia(?:\s+thu\s+ve|\s+ca\s+bo)?\b\s*[:;]?\s*(?:(\d+)\s*(trieu|t)\s*(\d{1,3})?|([0-9]{3,4})(?!\d)|(\d{1,2})(?![\d\w]))/iu);
     if (!priceMatch) return unrecognized();
     const primary = normalized.slice(0, priceMatch.index);
     const firstLine = primary.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
@@ -121,7 +125,7 @@ const parseModernLaptopPost = (content: string): LaptopParseResult => {
     }
     if (!productName || !cpuMatch || !ramMatch || !storageMatches.length) return unrecognized();
 
-    const millions = priceMatch[1] ? Number(priceMatch[1]) : 0;
+    const millions = priceMatch[1] ? Number(priceMatch[1]) : Number(priceMatch[5] ?? 0);
     const fraction = priceMatch[3] ? Number(priceMatch[3].padEnd(3, "0")) : 0;
     const price = priceMatch[4] ? Number(priceMatch[4]) * 1_000 : millions * 1_000_000 + fraction * 1_000;
     if (!Number.isSafeInteger(price) || price <= 0) return unrecognized();
@@ -130,7 +134,7 @@ const parseModernLaptopPost = (content: string): LaptopParseResult => {
         .replace(/[a-z]$/iu, (suffix) => suffix.toUpperCase());
     const cpu = /^(?:i[3579])/iu.test(cpuRaw)
         ? `Core ${cpuRaw.replace(/^i([3579])/iu, (_value, series: string) => `i${series}`)}`
-        : capitalizeModern(cpuRaw).replace(/[a-z]$/iu, (suffix) => suffix.toUpperCase());
+        : formatCpuWords(cpuRaw);
 
     return {
         ok: true,
@@ -163,15 +167,30 @@ const formatModernProductName = (value: string): string => value
 
 const capitalizeModern = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
+/** Chip model codes stay uppercase ("N3350", "PRO"); only plain brand words are capitalized. */
+const formatCpuWords = (value: string): string => value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => {
+        if (/^pro$/iu.test(word)) return "PRO";
+        return /\d/u.test(word) ? word.toUpperCase() : capitalizeModern(word);
+    })
+    .join(" ");
+
 function extractProductName(primaryConfiguration: string): string | null {
     const firstLine = primaryConfiguration.split(/\r?\n/).find((line) => line.trim());
     if (!firstLine) return null;
 
     const match = firstLine.match(LAPTOP_NAME_PATTERN);
-    const candidate = (match?.[1] ?? firstLine).trim();
+    const candidate = stripNameSeparators(match?.[1] ?? firstLine);
     if (!candidate || /^(?:CPU\s*)?(?:CORE\s+I[3579]|M[123])\b/i.test(candidate)) return null;
 
     return formatProductName(candidate);
+}
+
+/** Publishers end the title line with ":" or "-" before the configuration follows. */
+function stripNameSeparators(value: string): string {
+    return value.trim().replace(/\s*[:\-–]+\s*$/u, "").trim();
 }
 
 function extractCpu(primaryConfiguration: string): string | null {
@@ -179,7 +198,7 @@ function extractCpu(primaryConfiguration: string): string | null {
     if (!match) return null;
 
     if (match[3]) return match[3].toUpperCase();
-    return `Core i${match[1]} ${match[2].toUpperCase()}`;
+    return match[2] ? `Core i${match[1]} ${match[2].toUpperCase()}` : `Core i${match[1]}`;
 }
 
 function extractRam(primaryConfiguration: string): string | null {

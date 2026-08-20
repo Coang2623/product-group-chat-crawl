@@ -143,6 +143,86 @@ describe("Product Monitor UI", () => {
         await waitFor(() => expect(api.completeProduct).toHaveBeenCalledWith(product.id));
     });
 
+    const threeImageApi = () => createApi({
+        getProducts: vi.fn().mockResolvedValue([product]),
+        getProduct: vi.fn().mockResolvedValue({
+            product,
+            media: [1, 2, 3].map((sequence) => ({
+                id: `media-${sequence}`,
+                productId: product.id,
+                sourceMessageId: `image-${sequence}`,
+                sequence,
+                localPath: `00${sequence}.jpg`,
+                downloadStatus: "downloaded" as const,
+                createdAt: sequence,
+            })),
+        }),
+    });
+
+    const openLightbox = async (label = "Phóng to ảnh 1") => {
+        fireEvent.click(await screen.findByLabelText("Xem chi tiết HP ZBook 15 G3"));
+        const panel = await screen.findByRole("complementary", { name: "Chi tiết sản phẩm" });
+        fireEvent.click(within(panel).getByLabelText(label));
+        return screen.findByRole("dialog");
+    };
+
+    it("zooms an image when its thumbnail is clicked", async () => {
+        const { api } = threeImageApi();
+        render(<App api={api} />);
+
+        const dialog = await openLightbox();
+
+        expect(within(dialog).getByRole("img", { name: "Ảnh sản phẩm 1" }))
+            .toHaveAttribute("src", "/api/media/media-1");
+        expect(within(dialog).getByText("1 / 3")).toBeInTheDocument();
+    });
+
+    it("steps through the images of one product with the arrow buttons", async () => {
+        const { api } = threeImageApi();
+        render(<App api={api} />);
+        const dialog = await openLightbox();
+
+        fireEvent.click(within(dialog).getByLabelText("Ảnh sau"));
+        expect(within(dialog).getByText("2 / 3")).toBeInTheDocument();
+
+        fireEvent.click(within(dialog).getByLabelText("Ảnh trước"));
+        expect(within(dialog).getByText("1 / 3")).toBeInTheDocument();
+    });
+
+    it("wraps around at both ends so the arrows never dead-end", async () => {
+        const { api } = threeImageApi();
+        render(<App api={api} />);
+        const dialog = await openLightbox();
+
+        fireEvent.click(within(dialog).getByLabelText("Ảnh trước"));
+        expect(within(dialog).getByText("3 / 3")).toBeInTheDocument();
+
+        fireEvent.click(within(dialog).getByLabelText("Ảnh sau"));
+        expect(within(dialog).getByText("1 / 3")).toBeInTheDocument();
+    });
+
+    it("navigates and closes with the keyboard", async () => {
+        const { api } = threeImageApi();
+        render(<App api={api} />);
+        const dialog = await openLightbox();
+
+        fireEvent.keyDown(window, { key: "ArrowRight" });
+        expect(within(dialog).getByText("2 / 3")).toBeInTheDocument();
+
+        fireEvent.keyDown(window, { key: "Escape" });
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
+
+    it("hides the arrows when a product has a single image", async () => {
+        const { api } = createApi({ getProducts: vi.fn().mockResolvedValue([product]) });
+        render(<App api={api} />);
+
+        const dialog = await openLightbox();
+
+        expect(within(dialog).queryByLabelText("Ảnh sau")).not.toBeInTheDocument();
+        expect(within(dialog).getByText("1 / 1")).toBeInTheDocument();
+    });
+
     it("shows group selection before loading products", async () => {
         const { api } = createApi({
             getStatus: vi.fn().mockResolvedValue({

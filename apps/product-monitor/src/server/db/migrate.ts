@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS product_message_links (
   kind TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS orphan_media (
+  message_id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL,
+  sender_id TEXT NOT NULL,
+  source_url TEXT,
+  sent_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS orphan_media_sent_at ON orphan_media(sent_at);
 CREATE INDEX IF NOT EXISTS product_message_links_product
 ON product_message_links(product_id);
 CREATE TABLE IF NOT EXISTS product_sale_events (

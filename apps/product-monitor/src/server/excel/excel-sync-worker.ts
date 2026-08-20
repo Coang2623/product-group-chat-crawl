@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { access, copyFile, mkdir, rename, rm } from "node:fs/promises";
-import { dirname, extname } from "node:path";
+import { access, copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { basename, dirname, extname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import ExcelJS from "exceljs";
 import type { AppConfig } from "../config.js";
@@ -11,6 +11,9 @@ export interface ExcelFileSystem {
     copyFile(source: string, destination: string): Promise<void>;
     rename(source: string, destination: string): Promise<void>;
     access(path: string): Promise<void>;
+    readdir?(path: string): Promise<string[]>;
+    stat?(path: string): Promise<{ mtimeMs: number }>;
+    rm?(path: string, options: { force: true }): Promise<void>;
 }
 
 export type ExcelSyncWorkerOptions = {
@@ -18,7 +21,10 @@ export type ExcelSyncWorkerOptions = {
     temporaryId?: () => string;
 };
 
-const nodeFileSystem: ExcelFileSystem = { access, copyFile, rename };
+const nodeFileSystem: ExcelFileSystem = { access, copyFile, rename, readdir, stat, rm };
+
+/** A temporary workbook still being written by a live sync must never be collected. */
+const STALE_TEMPORARY_FILE_MS = 60 * 60 * 1000;
 
 const HEADERS = [
     "STT",
@@ -93,12 +99,24 @@ export class ExcelSyncWorker {
         this.temporaryId = options.temporaryId ?? randomUUID;
     }
 
+    /**
+     * Writes every queued product in a single pass. The workbook is rendered from the
+     * whole repository, so one write already satisfies all pending jobs; syncing them
+     * one at a time re-rendered and re-embedded every image once per job.
+     */
     async syncPending(): Promise<{ synced: number; blocked: number; failed: number }> {
         const result = { synced: 0, blocked: 0, failed: 0 };
         const jobs = this.repository.listPendingExcelJobs();
-        for (const job of jobs) {
-            await this.syncProduct(job.productId);
-            const status = this.repository.getProduct(job.productId)?.excelSyncStatus;
+        if (!jobs.length) return result;
+
+        const productIds = jobs
+            .map((job) => job.productId)
+            .filter((productId) => this.repository.getProduct(productId));
+        if (!productIds.length) return result;
+
+        await this.writeWorkbook(productIds);
+        for (const productId of productIds) {
+            const status = this.repository.getProduct(productId)?.excelSyncStatus;
             if (status === "synced") result.synced += 1;
             else if (status === "blocked") result.blocked += 1;
             else if (status === "failed") result.failed += 1;
@@ -106,10 +124,47 @@ export class ExcelSyncWorker {
         return result;
     }
 
+    /**
+     * Removes temporary workbooks abandoned by a crash. A sync that dies before its
+     * catch block runs leaves the file behind forever, and they accumulate unbounded.
+     */
+    async collectStaleTemporaryFiles(now: number = Date.now()): Promise<number> {
+        const { readdir: readDirectory, stat: statFile, rm: remove } = this.fileSystem;
+        if (!readDirectory || !statFile || !remove) return 0;
+
+        const directory = dirname(this.config.workbookPath);
+        const prefix = `${basename(this.config.workbookPath)}.`;
+        let entries: string[];
+        try {
+            entries = await readDirectory(directory);
+        } catch {
+            return 0;
+        }
+
+        let collected = 0;
+        for (const entry of entries) {
+            if (!entry.startsWith(prefix) || !entry.endsWith(".tmp.xlsx")) continue;
+            const path = join(directory, entry);
+            try {
+                const { mtimeMs } = await statFile(path);
+                if (now - mtimeMs < STALE_TEMPORARY_FILE_MS) continue;
+                await remove(path, { force: true });
+                collected += 1;
+            } catch {
+                // A file that vanished or is locked is not this pass's problem.
+            }
+        }
+        return collected;
+    }
+
     async syncProduct(productId: string): Promise<void> {
-        const product = this.repository.getProduct(productId);
-        if (!product) return;
-        this.repository.markExcelJob(productId, "running");
+        if (!this.repository.getProduct(productId)) return;
+        await this.writeWorkbook([productId]);
+    }
+
+    /** One workbook render and one atomic replace, resolving every supplied job together. */
+    private async writeWorkbook(productIds: string[]): Promise<void> {
+        for (const productId of productIds) this.repository.markExcelJob(productId, "running");
 
         const temporaryPath = `${this.config.workbookPath}.${this.temporaryId()}.tmp.xlsx`;
         try {
@@ -123,13 +178,12 @@ export class ExcelSyncWorker {
                 );
             }
             await this.fileSystem.rename(temporaryPath, this.config.workbookPath);
-            this.repository.completeExcelJob(productId);
+            for (const productId of productIds) this.repository.completeExcelJob(productId);
         } catch (error) {
             await rm(temporaryPath, { force: true }).catch(() => undefined);
-            if (isWorkbookLock(error)) {
-                this.repository.markExcelJob(productId, "blocked", errorMessage(error));
-            } else {
-                this.repository.markExcelJob(productId, "failed", errorMessage(error));
+            const status = isWorkbookLock(error) ? "blocked" : "failed";
+            for (const productId of productIds) {
+                this.repository.markExcelJob(productId, status, errorMessage(error));
             }
         }
     }

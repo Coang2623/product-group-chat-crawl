@@ -33,6 +33,24 @@ const QR_EVENT = {
 } as const;
 const GROUP_THREAD_TYPE = 1;
 const INITIAL_HISTORY_CURSOR = "10000000000000000";
+const DEFAULT_SESSION_RESTORE_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY_MS = 2_000;
+
+/** Node/undici codes raised when the host is unreachable rather than rejecting us. */
+const TRANSIENT_NETWORK_CODES = new Set([
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "ENETDOWN",
+    "EPIPE",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_SOCKET",
+]);
 
 export interface ZaloListenerFacade {
     on(event: string, handler: (...events: unknown[]) => void): void;
@@ -78,6 +96,10 @@ export type ZaloAdapterOptions = {
     login?: ZaloLoginFacade;
     settings?: ZaloSettingStore;
     onDiagnostic?: (code: string, sanitizedEvent: string) => void;
+    /** Total login attempts before a restore is treated as a genuine sign-out. */
+    sessionRestoreAttempts?: number;
+    retryDelayMs?: number;
+    sleep?: (milliseconds: number) => Promise<void>;
 };
 
 export interface ZaloProductAdapter {
@@ -118,8 +140,14 @@ export class ZaloAdapter implements ZaloProductAdapter {
     private readonly reactionHandlers = new Set<(event: NormalizedReactionEvent) => void>();
     private readonly saleStatusHandlers = new Set<(event: NormalizedSaleStatusEvent) => void>();
 
+    private readonly retryDelayMs: number;
+    private readonly delay: (milliseconds: number) => Promise<void>;
+
     public constructor(private readonly options: ZaloAdapterOptions) {
         this.login = options.login ?? createDefaultLogin();
+        this.retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+        this.delay = options.sleep
+            ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
     }
 
     getConnectionState(): ConnectionState {
@@ -158,24 +186,50 @@ export class ZaloAdapter implements ZaloProductAdapter {
     }
 
     async restoreSession(): Promise<boolean> {
+        let credentials: ZaloCredentials;
         try {
-            const credentials = JSON.parse(
+            credentials = JSON.parse(
                 await readFile(this.options.credentialsPath, "utf8"),
             ) as ZaloCredentials;
-            this.api = await this.login.login(credentials);
-            this.state = "connected";
-            const storedGroup = this.options.settings?.getSetting("activeGroupId");
-            if (storedGroup) {
-                await this.selectGroup(storedGroup).catch(() => undefined);
-            }
-            return true;
         } catch (error) {
+            // No stored session yet is the normal first-run path, not a failure.
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-                this.report("session_restore_failed", error);
-                this.state = "disconnected";
+                this.report("credentials_unreadable", error);
+                this.state = "signed_out";
             }
             return false;
         }
+
+        // A network blip must not be mistaken for revoked credentials: re-scanning a QR
+        // is a manual step, so only give up when the session is genuinely rejected.
+        const attempts = this.options.sessionRestoreAttempts ?? DEFAULT_SESSION_RESTORE_ATTEMPTS;
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+            try {
+                this.api = await this.login.login(credentials);
+                this.state = "connected";
+                const storedGroup = this.options.settings?.getSetting("activeGroupId");
+                if (storedGroup) {
+                    await this.selectGroup(storedGroup).catch(() => undefined);
+                }
+                return true;
+            } catch (error) {
+                const retryable = isTransientNetworkError(error) && attempt < attempts;
+                this.report(retryable ? "session_restore_retrying" : "session_restore_failed", {
+                    attempt,
+                    attempts,
+                    retryable,
+                    reason: isTransientNetworkError(error) ? "network" : "rejected",
+                    error: describeError(error),
+                });
+                if (!retryable) {
+                    // Keep credentials on a network failure; only a rejected session is signed out.
+                    this.state = isTransientNetworkError(error) ? "disconnected" : "signed_out";
+                    return false;
+                }
+                await this.delay(this.retryDelayMs * attempt);
+            }
+        }
+        return false;
     }
 
     async listGroups(): Promise<ZaloGroup[]> {
@@ -492,7 +546,9 @@ export class ZaloAdapter implements ZaloProductAdapter {
         const data = asRecord(event?.data);
         const groupId = stringValue(event?.threadId) ?? stringValue(data?.idTo);
         if (!this.selectedGroup || groupId !== this.selectedGroup.id || !data) return;
-        const content = asRecord(data.content);
+        // Live reactions (cmd 612) arrive with content already parsed, but the
+        // old_reactions replay (cmd 610/611) leaves it as a raw JSON string.
+        const content = asRecordOrJson(data.content);
         const messages = Array.isArray(content?.rMsg) ? content.rMsg : [];
         const targetMessageIds = [...new Set(messages.flatMap((message) => {
             const target = asRecord(message);
@@ -502,7 +558,15 @@ export class ZaloAdapter implements ZaloProductAdapter {
         const userId = stringValue(data.uidFrom);
         const occurredAt = numericTimestamp(data.ts);
         if (!userId || occurredAt === null || !targetMessageIds.length) {
-            this.report("invalid_reaction", raw);
+            // Reaction content is routing metadata, not message text, so it is reported
+            // verbatim: redacting it previously made this failure impossible to diagnose.
+            this.report("invalid_reaction", {
+                reason: !userId ? "missing_user" : occurredAt === null ? "missing_timestamp" : "no_target_messages",
+                contentType: typeof data.content,
+                contentShape: describeReactionContent(data.content),
+                userId,
+                occurredAt,
+            });
             return;
         }
         const icon = stringValue(content?.rIcon) ?? "";
@@ -562,6 +626,49 @@ const asRecord = (value: unknown): Record<string, unknown> | null =>
     value !== null && typeof value === "object" && !Array.isArray(value)
         ? value as Record<string, unknown>
         : null;
+
+/**
+ * Distinguishes "could not reach Zalo" from "Zalo rejected this session". Only the
+ * latter means the stored credentials are dead and a QR re-scan is required.
+ */
+const isTransientNetworkError = (error: unknown): boolean => {
+    for (let current: unknown = error, depth = 0; current && depth < 5; depth += 1) {
+        const record = current as { code?: unknown; name?: unknown; cause?: unknown };
+        const code = typeof record.code === "string" ? record.code : undefined;
+        if (code && TRANSIENT_NETWORK_CODES.has(code)) return true;
+        if (record.name === "AbortError" || record.name === "TimeoutError") return true;
+        current = record.cause;
+    }
+    return error instanceof TypeError && /fetch failed|network/iu.test(error.message);
+};
+
+/** Error summary safe for diagnostics: no cookies, tokens, or message text. */
+const describeError = (error: unknown): string => {
+    if (!(error instanceof Error)) return typeof error;
+    const code = (error as Error & { code?: unknown }).code;
+    return `${error.name}${typeof code === "string" ? `(${code})` : ""}`;
+};
+
+/** Names the reaction payload's shape without echoing any message text. */
+const describeReactionContent = (value: unknown): string => {
+    const record = asRecordOrJson(value);
+    if (!record) return typeof value === "string" ? "unparseable_string" : "not_a_record";
+    return `keys=${Object.keys(record).sort().join(",") || "none"} rMsg=${
+        Array.isArray(record.rMsg) ? `array(${record.rMsg.length})` : typeof record.rMsg
+    }`;
+};
+
+/** Accepts a record, or a JSON string holding one, and returns null for anything else. */
+const asRecordOrJson = (value: unknown): Record<string, unknown> | null => {
+    const record = asRecord(value);
+    if (record) return record;
+    if (typeof value !== "string") return null;
+    try {
+        return asRecord(JSON.parse(value));
+    } catch {
+        return null;
+    }
+};
 
 const stringValue = (value: unknown): string | undefined =>
     typeof value === "string" || typeof value === "number" ? String(value) : undefined;

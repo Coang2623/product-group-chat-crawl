@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import type { ProductDetail } from "../api.js";
+import { ImageLightbox } from "./ImageLightbox.js";
 
 type ProductDetailPanelProps = {
     detail: ProductDetail;
@@ -14,6 +16,15 @@ export function ProductDetailPanel({
     onComplete,
 }: ProductDetailPanelProps) {
     const { product, media } = detail;
+    const downloaded = media.filter((item) => item.downloadStatus === "downloaded");
+    const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+
+    // Images stream in while a product is still receiving them, so a stored index can
+    // outlive the image it pointed at.
+    useEffect(() => {
+        setZoomedIndex((current) => (current === null || current < downloaded.length ? current : null));
+    }, [downloaded.length]);
+
     return (
         <aside className="detail-panel" aria-label="Chi tiết sản phẩm">
             <header>
@@ -22,17 +33,35 @@ export function ProductDetailPanel({
             </header>
             <div className="detail-panel__body">
                 <div className="gallery">
-                    {media.filter((item) => item.downloadStatus === "downloaded").map((item, index) => (
-                        <img
+                    {downloaded.map((item, index) => (
+                        <button
                             key={item.id}
-                            src={`/api/media/${encodeURIComponent(item.id)}`}
-                            alt={`Ảnh sản phẩm ${index + 1}`}
-                        />
+                            type="button"
+                            className="gallery__item"
+                            aria-label={`Phóng to ảnh ${index + 1}`}
+                            onClick={() => setZoomedIndex(index)}
+                        >
+                            <img
+                                src={`/api/media/${encodeURIComponent(item.id)}`}
+                                alt={`Ảnh sản phẩm ${index + 1}`}
+                            />
+                        </button>
                     ))}
-                    {!media.some((item) => item.downloadStatus === "downloaded") && (
+                    {!downloaded.length && (
                         <div className="gallery__empty">Chưa tải được ảnh</div>
                     )}
                 </div>
+                {zoomedIndex !== null && (
+                    <ImageLightbox
+                        images={downloaded.map((item, index) => ({
+                            id: item.id,
+                            label: `Ảnh sản phẩm ${index + 1}`,
+                        }))}
+                        index={zoomedIndex}
+                        onIndexChange={setZoomedIndex}
+                        onClose={() => setZoomedIndex(null)}
+                    />
+                )}
                 <section>
                     <div className="section-heading"><span>DỮ LIỆU ĐÃ MAP</span><b>{product.status === "needs_review" ? "CẦN KIỂM TRA" : "PARSER OK"}</b></div>
                     <dl className="mapped-fields">

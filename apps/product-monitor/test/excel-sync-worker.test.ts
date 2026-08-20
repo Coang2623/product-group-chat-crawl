@@ -192,6 +192,87 @@ describe("ExcelSyncWorker", () => {
         expect(repository.listPendingExcelJobs()[0]).toMatchObject({ status: "failed", attempts: 1 });
     });
 
+    it("writes the workbook once for a batch of queued products", async () => {
+        // The workbook is rendered from the whole repository, so one write settles every
+        // job. Writing per job re-embedded all images once per product.
+        const product = await createProductWithCover();
+        const second = repository.createProduct(fixtureProduct({
+            id: "product-2",
+            descriptionMessageId: "message-2",
+            mediaDirectory: join(directory, "media", "2026-07", "product-2"),
+            status: "completed",
+        }));
+        repository.enqueueExcelSync(product.id);
+        repository.enqueueExcelSync(second.id);
+
+        const rename = vi.fn(async (source: string, destination: string) => {
+            await copyFile(source, destination);
+            await rm(source, { force: true });
+        });
+        const worker = new ExcelSyncWorker(repository, config, {
+            fileSystem: { access, copyFile, rename },
+        });
+
+        await expect(worker.syncPending()).resolves.toEqual({ synced: 2, blocked: 0, failed: 0 });
+        expect(rename).toHaveBeenCalledTimes(1);
+    });
+
+    it("marks every product in a failed batch, not just the first", async () => {
+        const product = await createProductWithCover();
+        const second = repository.createProduct(fixtureProduct({
+            id: "product-2",
+            descriptionMessageId: "message-2",
+            mediaDirectory: join(directory, "media", "2026-07", "product-2"),
+            status: "completed",
+        }));
+        repository.enqueueExcelSync(product.id);
+        repository.enqueueExcelSync(second.id);
+
+        const worker = new ExcelSyncWorker(repository, config, {
+            fileSystem: {
+                access,
+                copyFile,
+                rename: vi.fn().mockRejectedValue(Object.assign(new Error("locked"), { code: "EBUSY" })),
+            },
+        });
+
+        await expect(worker.syncPending()).resolves.toEqual({ synced: 0, blocked: 2, failed: 0 });
+        expect(repository.getProduct(product.id)?.excelSyncStatus).toBe("blocked");
+        expect(repository.getProduct(second.id)?.excelSyncStatus).toBe("blocked");
+    });
+
+    it("collects temporary workbooks abandoned by a crash", async () => {
+        const worker = new ExcelSyncWorker(repository, config);
+        const stale = `${config.workbookPath}.abandoned.tmp.xlsx`;
+        await writeFile(stale, "");
+
+        const twoHoursLater = Date.now() + 2 * 60 * 60 * 1000;
+        await expect(worker.collectStaleTemporaryFiles(twoHoursLater)).resolves.toBe(1);
+        await expect(access(stale)).rejects.toThrow();
+    });
+
+    it("never collects a temporary workbook a live sync may still be writing", async () => {
+        const worker = new ExcelSyncWorker(repository, config);
+        const inFlight = `${config.workbookPath}.in-flight.tmp.xlsx`;
+        await writeFile(inFlight, "");
+
+        await expect(worker.collectStaleTemporaryFiles()).resolves.toBe(0);
+        await expect(access(inFlight)).resolves.toBeUndefined();
+    });
+
+    it("leaves the workbook and unrelated files alone", async () => {
+        const worker = new ExcelSyncWorker(repository, config);
+        const unrelated = join(directory, "notes.tmp.xlsx");
+        await writeFile(config.workbookPath, "workbook");
+        await writeFile(`${config.workbookPath}.bak`, "backup");
+        await writeFile(unrelated, "");
+
+        await expect(worker.collectStaleTemporaryFiles(Date.now() + 2 * 60 * 60 * 1000)).resolves.toBe(0);
+        await expect(access(config.workbookPath)).resolves.toBeUndefined();
+        await expect(access(`${config.workbookPath}.bak`)).resolves.toBeUndefined();
+        await expect(access(unrelated)).resolves.toBeUndefined();
+    });
+
     it("reports aggregate outcomes while retrying every queued product", async () => {
         const product = await createProductWithCover();
         const worker = new ExcelSyncWorker(repository, config);

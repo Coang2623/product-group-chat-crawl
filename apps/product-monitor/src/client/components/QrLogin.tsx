@@ -2,10 +2,12 @@ type QrLoginProps = {
     image?: string;
     state?: string;
     busy: boolean;
+    /** Credentials are still valid; only the connection to Zalo is down. */
+    offline?: boolean;
     onBegin(): void;
 };
 
-export function QrLogin({ image, state, busy, onBegin }: QrLoginProps) {
+export function QrLogin({ image, state, busy, offline, onBegin }: QrLoginProps) {
     const qrSource = image && (image.startsWith("data:")
         ? image
         : `data:image/png;base64,${image}`);
@@ -27,7 +29,14 @@ export function QrLogin({ image, state, busy, onBegin }: QrLoginProps) {
                 <div className="auth-card">
                     <p className="eyebrow">ĐĂNG NHẬP CỤC BỘ</p>
                     <h2>Kết nối tài khoản Zalo</h2>
-                    <p>Mở Zalo trên điện thoại và quét mã để bắt đầu.</p>
+                    {offline ? (
+                        <p role="status" className="auth-notice">
+                            Phiên đăng nhập vẫn còn hiệu lực nhưng không kết nối được tới Zalo.
+                            Kiểm tra mạng — công cụ sẽ tự thử lại, bạn chưa cần quét mã.
+                        </p>
+                    ) : (
+                        <p>Mở Zalo trên điện thoại và quét mã để bắt đầu.</p>
+                    )}
                     {qrSource ? (
                         <img className="qr-image" src={qrSource} alt="Mã QR đăng nhập Zalo" />
                     ) : (

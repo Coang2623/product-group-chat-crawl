@@ -50,6 +50,25 @@ export type ProductMedia = {
     createdAt: number;
 };
 
+export type OrphanMedia = {
+    messageId: string;
+    groupId: string;
+    senderId: string;
+    sourceUrl?: string;
+    sentAt: number;
+    createdAt: number;
+};
+
+export type NewOrphanMedia = OrphanMedia;
+
+export type ImageAttachmentQuery = {
+    groupId: string;
+    senderIds: string[];
+    /** Images arriving more than this many ms after a description are not attached to it. */
+    sentAt: number;
+    windowMs: number;
+};
+
 export type ProductReaction = {
     productId: string;
     targetMessageId: string;

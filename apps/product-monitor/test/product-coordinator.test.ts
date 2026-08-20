@@ -385,21 +385,105 @@ describe("ProductCoordinator", () => {
         expect(repo.listMedia(product.id)).toHaveLength(messageIds.length);
     });
 
-    it("returns orphan for an authorized image when there is no receiving product", () => {
+    describe("idle draft timeout", () => {
+        const timeout = 15 * 60 * 1000;
+
+        it("closes a draft left open after the last posting session", () => {
+            const product = coordinator.handleDescription(descriptionEvent({ sentAt: 1_000 }));
+
+            const completed = coordinator.completeIdleDraft(1_000 + timeout);
+
+            expect(completed?.id).toBe(product.id);
+            expect(repo.getProduct(product.id)?.status).toBe("completed");
+            expect(repo.getActiveProduct()).toBeNull();
+        });
+
+        it("keeps a draft open while it is still within the window", () => {
+            coordinator.handleDescription(descriptionEvent({ sentAt: 1_000 }));
+
+            expect(coordinator.completeIdleDraft(1_000 + timeout - 1)).toBeNull();
+            expect(repo.getActiveProduct()).not.toBeNull();
+        });
+
+        it("measures idleness from the newest image, not the description", () => {
+            // A publisher still sending photos must not have the draft closed underneath them.
+            coordinator.handleDescription(descriptionEvent({ sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "late", sentAt: 1_000 + timeout }));
+
+            expect(coordinator.completeIdleDraft(1_000 + timeout + 1)).toBeNull();
+            expect(coordinator.completeIdleDraft(1_000 + 2 * timeout)).not.toBeNull();
+        });
+
+        it("does nothing when no draft is open", () => {
+            expect(coordinator.completeIdleDraft(Date.now())).toBeNull();
+        });
+
+        it("queues the closed product for Excel", () => {
+            const product = coordinator.handleDescription(descriptionEvent({ sentAt: 1_000 }));
+            repo.markExcelJob(product.id, "running");
+
+            coordinator.completeIdleDraft(1_000 + timeout);
+
+            expect(repo.listPendingExcelJobs().map((job) => job.productId)).toContain(product.id);
+        });
+    });
+
+    it("returns orphan for an authorized image when there is no product at all", () => {
         expect(coordinator.handleImage(imageEvent())).toBe("orphan");
     });
 
-    it("returns orphan for images after an unparseable description creates needs_review", () => {
-        coordinator.handleDescription(descriptionEvent({ content: "máy đẹp inbox" }));
+    it("records an orphan image so it can be reconciled instead of being dropped", () => {
+        expect(coordinator.handleImage(imageEvent({ messageId: "stray", sentAt: 150 }))).toBe("orphan");
 
-        expect(coordinator.handleImage(imageEvent())).toBe("orphan");
+        expect(repo.listOrphanMedia()).toEqual([{
+            messageId: "stray",
+            groupId: "group-1",
+            senderId: "admin-1",
+            sourceUrl: "https://example.test/image.jpg",
+            sentAt: 150,
+            createdAt: 150,
+        }]);
     });
 
-    it("returns orphan for images after the receiving product is completed", () => {
-        coordinator.handleDescription(descriptionEvent());
-        coordinator.completeActive(500);
+    it("attaches images to a needs_review description rather than discarding them", () => {
+        const product = coordinator.handleDescription(
+            descriptionEvent({ content: "máy đẹp inbox", sentAt: 100 }),
+        );
 
-        expect(coordinator.handleImage(imageEvent())).toBe("orphan");
+        const media = coordinator.handleImage(imageEvent({ sentAt: 150 }));
+
+        if (media === "orphan") throw new Error("Expected media to attach");
+        expect(media.productId).toBe(product.id);
+    });
+
+    it("attaches images to the most recent description after its draft was completed", () => {
+        const product = coordinator.handleDescription(descriptionEvent({ sentAt: 100 }));
+        coordinator.completeActive(120);
+
+        const media = coordinator.handleImage(imageEvent({ sentAt: 150 }));
+
+        if (media === "orphan") throw new Error("Expected media to attach");
+        expect(media.productId).toBe(product.id);
+    });
+
+    it("attaches a burst of images to the newest description, not the first one", () => {
+        // Publishers post several descriptions seconds apart, then send the photos.
+        coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+        coordinator.handleDescription(descriptionEvent({ messageId: "d2", sentAt: 8_000 }));
+        const newest = coordinator.handleDescription(descriptionEvent({ messageId: "d3", sentAt: 15_000 }));
+
+        const media = coordinator.handleImage(imageEvent({ messageId: "img", sentAt: 20_000 }));
+
+        if (media === "orphan") throw new Error("Expected media to attach");
+        expect(media.productId).toBe(newest.id);
+    });
+
+    it("does not attach an image to a description older than the attachment window", () => {
+        coordinator.handleDescription(descriptionEvent({ messageId: "old", sentAt: 1_000 }));
+        coordinator.completeActive(1_100);
+
+        const windowMs = 15 * 60 * 1000;
+        expect(coordinator.handleImage(imageEvent({ sentAt: 1_000 + windowMs + 1 }))).toBe("orphan");
     });
 
     it("rolls back attached media when its Excel enqueue fails", () => {

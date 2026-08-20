@@ -194,6 +194,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
         return <QrLogin
             {...qr}
             busy={busy}
+            offline={connection === "disconnected" || connection === "reconnecting"}
             onBegin={() => {
                 setBusy(true);
                 void api.beginQrLogin().catch((reason) => setError(errorMessage(reason))).finally(() => setBusy(false));

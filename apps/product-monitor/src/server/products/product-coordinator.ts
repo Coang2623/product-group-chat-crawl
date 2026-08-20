@@ -12,10 +12,26 @@ import type {
 import type { ProductRepository } from "../db/product-repository.js";
 import { parseLaptopPost, type LaptopParseResult } from "../parser/laptop-parser.js";
 
+/**
+ * Publishers post a burst of descriptions seconds apart, then send photos for them.
+ * Images are therefore attached to the newest description within this window rather
+ * than only to a single open draft, which the burst would have already closed.
+ */
+export const DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * A draft is only closed by the next description, so the last product of a posting
+ * session stays "receiving images" until the group posts again — possibly for days.
+ * Once no image can still join it, it is finished in practice.
+ */
+export const DEFAULT_IDLE_DRAFT_TIMEOUT_MS = DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS;
+
 export type ProductCoordinatorOptions = {
     activeGroupId: string | (() => string | null);
     publisherId: string | (() => string | string[] | null);
     mediaRoot: string;
+    imageAttachmentWindowMs?: number;
+    idleDraftTimeoutMs?: number;
 };
 
 export class ProductCoordinator {
@@ -60,23 +76,30 @@ export class ProductCoordinator {
         this.assertPublisher(event.senderId);
 
         return this.repository.runInTransaction(() => {
-            const active = this.repository.getActiveProduct();
-            if (!active) return "orphan";
-            if (active.groupId !== this.activeGroupId() || !this.publisherIds().includes(active.senderId)) {
+            const target = this.resolveImageTarget(event.sentAt);
+            if (!target) {
+                this.repository.recordOrphanMedia({
+                    messageId: event.messageId,
+                    groupId: event.groupId,
+                    senderId: event.senderId,
+                    sourceUrl: event.imageUrl,
+                    sentAt: event.sentAt,
+                    createdAt: event.sentAt,
+                });
                 return "orphan";
             }
 
             const media = this.repository.addMedia({
                 id: deterministicId("media", event.messageId),
-                productId: active.id,
+                productId: target.id,
                 sourceMessageId: event.messageId,
                 sourceUrl: event.imageUrl,
-                sequence: this.repository.listMedia(active.id).length + 1,
+                sequence: this.repository.listMedia(target.id).length + 1,
                 downloadStatus: "pending",
                 createdAt: event.sentAt,
             });
-            this.repository.linkMessage(active.id, event.targetMessageIds ?? [event.messageId], "image", event.sentAt);
-            this.repository.enqueueExcelSync(active.id);
+            this.repository.linkMessage(target.id, event.targetMessageIds ?? [event.messageId], "image", event.sentAt);
+            this.repository.enqueueExcelSync(target.id);
             return media;
         });
     }
@@ -141,11 +164,56 @@ export class ProductCoordinator {
         });
     }
 
+    /**
+     * Closes the open draft once it has been idle past the attachment window, so the
+     * final product of a posting session does not sit in "receiving images" forever.
+     * The timeout matches the image window: past it, no image would attach anyway.
+     */
+    completeIdleDraft(now: number): ProductRecord | null {
+        const timeout = this.options.idleDraftTimeoutMs ?? DEFAULT_IDLE_DRAFT_TIMEOUT_MS;
+        return this.repository.runInTransaction(() => {
+            const active = this.repository.getActiveProduct();
+            if (!active) return null;
+
+            const media = this.repository.listMedia(active.id);
+            const lastActivity = Math.max(
+                active.postedAt,
+                ...media.map((item) => item.createdAt),
+            );
+            if (now - lastActivity < timeout) return null;
+
+            const completed = this.repository.completeActiveProduct(now);
+            if (completed) this.repository.enqueueExcelSync(completed.id);
+            return completed;
+        });
+    }
+
     completeActive(completedAt: number): ProductRecord | null {
         return this.repository.runInTransaction(() => {
             const completed = this.repository.completeActiveProduct(completedAt);
             if (completed) this.repository.enqueueExcelSync(completed.id);
             return completed;
+        });
+    }
+
+    /**
+     * Prefers the open draft, then falls back to the newest recent description from a
+     * configured publisher. Without the fallback every burst-posted product loses its
+     * photos, because the next description closes the draft within seconds.
+     */
+    private resolveImageTarget(sentAt: number): ProductRecord | null {
+        const groupId = this.activeGroupId();
+        const publisherIds = this.publisherIds();
+        if (!groupId || !publisherIds.length) return null;
+
+        const active = this.repository.getActiveProduct();
+        if (active && active.groupId === groupId && publisherIds.includes(active.senderId)) return active;
+
+        return this.repository.findImageAttachmentTarget({
+            groupId,
+            senderIds: publisherIds,
+            sentAt,
+            windowMs: this.options.imageAttachmentWindowMs ?? DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS,
         });
     }
 

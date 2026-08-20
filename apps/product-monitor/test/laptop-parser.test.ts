@@ -162,4 +162,34 @@ describe("parseLaptopPost", () => {
     ])("parses current group format", (content, cpu, storage, price) => {
         expect(parseLaptopPost(content)).toMatchObject({ ok: true, fields: { cpu, storage, price } });
     });
+
+    it("keeps a CPU without a generation suffix instead of swallowing the next label", () => {
+        // MacBook posts write "CPU CORE I5" with no model number.
+        expect(parseLaptopPost(
+            "MACBOOK AIR 13.3 2019 :\nCPU CORE I5 - RAM 8GB - SSD 128GB - MÀN 2K RETINA\nGIÁ 5 TRIỆU",
+        )).toMatchObject({ ok: true, fields: { cpu: "Core i5", ram: "8GB" } });
+    });
+
+    it("drops the separator publishers put after the title", () => {
+        expect(parseLaptopPost(
+            "DELL LATITUDE 7490 :\nCPU CORE I5 8350U - RAM 8GB - Ổ SSD 256GB\nGIÁ 5 TRIỆU",
+        )).toMatchObject({ ok: true, fields: { productName: "Dell Latitude 7490" } });
+    });
+
+    it.each([
+        ["GIÁ THU VỀ 6", 6_000_000],
+        ["GIÁ THU VỀ 12", 12_000_000],
+        ["GIÁ THU VỀ 800", 800_000],
+        ["Giá thu về 900 cả sạc", 900_000],
+    ])("reads a bare price as millions below 100 and thousands above (%s)", (priceText, price) => {
+        expect(parseLaptopPost(
+            `LENOVO IDEAPAD 120S :\nCHIP INTEL N3350 - RAM 2GB - SSD 32GB\n${priceText}`,
+        )).toMatchObject({ ok: true, fields: { price } });
+    });
+
+    it("uppercases chip model codes rather than title-casing them", () => {
+        expect(parseLaptopPost(
+            "LENOVO IDEAPAD 120S :\nCHIP INTEL N3350 - RAM 2GB - SSD 32GB\nGIÁ THU VỀ 800",
+        )).toMatchObject({ ok: true, fields: { cpu: "Intel N3350" } });
+    });
 });

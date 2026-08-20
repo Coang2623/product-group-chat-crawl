@@ -74,11 +74,17 @@ export function wireProductPipeline(dependencies: PipelineDependencies): void {
 export async function recoverProductMonitor(dependencies: {
     repository: ProductRepository;
     mediaStore: Pick<MediaStore, "retryPending">;
-    excelWorker: Pick<ExcelSyncWorker, "syncPending">;
+    excelWorker: Pick<ExcelSyncWorker, "syncPending"> & Partial<Pick<ExcelSyncWorker, "collectStaleTemporaryFiles">>;
     zalo: Pick<ZaloProductAdapter, "restoreSession" | "start">;
     events: SseHub;
 }): Promise<boolean> {
     const restored = await dependencies.zalo.restoreSession();
+    const collected = await dependencies.excelWorker.collectStaleTemporaryFiles?.()
+        .catch((error) => {
+            console.error("[excel-gc]", safeMessage(error));
+            return 0;
+        });
+    if (collected) console.log(`[excel-gc] removed ${collected} stale temporary workbook(s)`);
     await dependencies.mediaStore.retryPending();
     await dependencies.excelWorker.syncPending();
     publishExcelStatus(dependencies.repository, dependencies.events);
@@ -139,7 +145,13 @@ export async function startProductMonitor(
 
     await recoverProductMonitor({ repository, mediaStore, excelWorker, zalo, events })
         .catch((error) => console.error("[recovery]", safeMessage(error)));
+    const closeIdleDraft = () => {
+        const completed = coordinator.completeIdleDraft(Date.now());
+        if (completed) events.publish({ type: "product.updated", product: completed });
+    };
+    closeIdleDraft();
     const retryTimer = setInterval(() => {
+        closeIdleDraft();
         void mediaStore.retryPending()
             .then(() => excelWorker.syncPending())
             .then(() => publishExcelStatus(repository, events))

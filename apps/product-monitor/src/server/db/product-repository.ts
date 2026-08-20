@@ -4,8 +4,11 @@ import type { ParsedLaptopFields } from "../parser/laptop-parser.js";
 import type {
     ExcelSyncJob,
     HeartStateInput,
+    ImageAttachmentQuery,
+    NewOrphanMedia,
     NewProductMedia,
     NewProductRecord,
+    OrphanMedia,
     ProductFilter,
     ProductMedia,
     ProductRecord,
@@ -80,6 +83,15 @@ export interface ProductRepository {
     createProduct(input: NewProductRecord): ProductRecord;
     completeActiveProduct(completedAt: number): ProductRecord | null;
     getActiveProduct(): ProductRecord | null;
+    /**
+     * Most recent product from the same publisher still eligible to receive images.
+     * Publishers post several descriptions seconds apart before sending any photos,
+     * so the newest description alone is not a reliable target.
+     */
+    findImageAttachmentTarget(input: ImageAttachmentQuery): ProductRecord | null;
+    recordOrphanMedia(input: NewOrphanMedia): void;
+    listOrphanMedia(): OrphanMedia[];
+    deleteOrphanMedia(messageId: string): void;
     getProduct(id: string): ProductRecord | null;
     getProductByMessageId(messageId: string): ProductRecord | null;
     getProductByTargetMessageId(messageId: string): ProductRecord | null;
@@ -168,6 +180,49 @@ export class SqliteProductRepository implements ProductRepository {
 
     getActiveProduct(): ProductRecord | null {
         return this.productOrNull(this.database.prepare("SELECT * FROM products WHERE status = 'receiving_images'").get());
+    }
+
+    findImageAttachmentTarget(input: ImageAttachmentQuery): ProductRecord | null {
+        if (!input.senderIds.length) return null;
+        const placeholders = input.senderIds.map(() => "?").join(", ");
+        return this.productOrNull(this.database.prepare(`
+            SELECT * FROM products
+            WHERE group_id = ?
+              AND sender_id IN (${placeholders})
+              AND posted_at <= ?
+              AND posted_at >= ?
+            ORDER BY posted_at DESC, id DESC
+            LIMIT 1
+        `).get(
+            input.groupId,
+            ...input.senderIds,
+            input.sentAt,
+            input.sentAt - input.windowMs,
+        ));
+    }
+
+    recordOrphanMedia(input: NewOrphanMedia): void {
+        this.database.prepare(`
+            INSERT INTO orphan_media (message_id, group_id, sender_id, source_url, sent_at, created_at)
+            VALUES (@messageId, @groupId, @senderId, @sourceUrl, @sentAt, @createdAt)
+            ON CONFLICT(message_id) DO NOTHING
+        `).run({ ...input, sourceUrl: input.sourceUrl ?? null });
+    }
+
+    listOrphanMedia(): OrphanMedia[] {
+        return (this.database.prepare("SELECT * FROM orphan_media ORDER BY sent_at").all() as ProductRow[])
+            .map((row) => ({
+                messageId: String(row.message_id),
+                groupId: String(row.group_id),
+                senderId: String(row.sender_id),
+                sourceUrl: optionalString(row.source_url),
+                sentAt: Number(row.sent_at),
+                createdAt: Number(row.created_at),
+            }));
+    }
+
+    deleteOrphanMedia(messageId: string): void {
+        this.database.prepare("DELETE FROM orphan_media WHERE message_id = ?").run(messageId);
     }
 
     getProduct(id: string): ProductRecord | null {
