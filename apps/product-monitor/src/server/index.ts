@@ -39,7 +39,23 @@ export function wireProductPipeline(dependencies: PipelineDependencies): void {
         }
         events.publish({ type: "product.created", product });
         publishExcelStatus(repository, events);
+        // A description can adopt photos that arrived before it, and those rows are
+        // created here rather than in onImage, so nothing else would fetch them.
+        downloadPending(product.id);
     });
+
+    function downloadPending(productId: string): void {
+        const product = repository.getProduct(productId);
+        if (!product) return;
+        for (const media of repository.listMedia(productId)) {
+            if (media.downloadStatus !== "pending") continue;
+            void mediaStore.download(product, media).then(() => {
+                const updated = repository.getProduct(productId);
+                if (updated) events.publish({ type: "product.updated", product: updated });
+                publishExcelStatus(repository, events);
+            });
+        }
+    }
 
     zalo.onImage((event) => {
         const media = coordinator.handleImage(event);
