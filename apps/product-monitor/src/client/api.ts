@@ -6,6 +6,7 @@ export type MonitorStatus = {
     connection: string;
     activeGroupId: string | null;
     activeProductId: string | null;
+    orphanedImages?: number;
     excel: { pending: number; blocked: boolean; lastError?: string };
 };
 export type ProductDetail = { product: ProductRecord; media: ProductMedia[] };

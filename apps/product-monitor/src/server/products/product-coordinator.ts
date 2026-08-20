@@ -126,6 +126,12 @@ export class ProductCoordinator {
         this.assertPublisher(event.senderId);
 
         return this.repository.runInTransaction(() => {
+            // The listener replays photo messages on reconnect. Attaching again would
+            // break the unique index, and orphaning again would resurrect a row the
+            // adoption pass has already consumed.
+            const existing = this.repository.getMedia(deterministicId("media", event.messageId));
+            if (existing) return existing;
+
             const target = this.resolveImageTarget(event.sentAt);
             if (!target) {
                 this.repository.recordOrphanMedia({

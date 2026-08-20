@@ -735,6 +735,21 @@ describe("ProductCoordinator", () => {
             expect(repo.listOrphanMedia().map((orphan) => orphan.messageId)).toEqual(["later"]);
         });
 
+        it("does not re-orphan a replayed photo it has already adopted", () => {
+            // On restart the listener replays the photo messages; without a guard the
+            // adopted rows would come back as orphans and be counted twice.
+            const event = imageEvent({ messageId: "o1", sentAt: 1_000 });
+            coordinator.handleImage(event);
+            const product = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 60_000 }));
+            expect(repo.listOrphanMedia()).toEqual([]);
+
+            const replayed = coordinator.handleImage(event);
+
+            expect(replayed).not.toBe("orphan");
+            expect(repo.listOrphanMedia()).toEqual([]);
+            expect(repo.listMedia(product.id)).toHaveLength(1);
+        });
+
         it("does not steal another publisher's orphans", () => {
             coordinator.handleImage(imageEvent({ messageId: "o1", sentAt: 1_000 }));
             repo.recordOrphanMedia({

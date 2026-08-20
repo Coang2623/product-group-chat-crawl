@@ -24,6 +24,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
     const [groups, setGroups] = useState<GroupSummary[]>([]);
     const [products, setProducts] = useState<Map<string, ProductRecord>>(new Map());
     const [excel, setExcel] = useState<MonitorStatus["excel"]>({ pending: 0, blocked: false });
+    const [orphanedImages, setOrphanedImages] = useState(0);
     const [qr, setQr] = useState<{ image?: string; state?: string }>({});
     const [busy, setBusy] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -65,6 +66,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
                 setConnection(status.connection);
                 setActiveGroupId(status.activeGroupId);
                 setExcel(status.excel);
+                setOrphanedImages(status.orphanedImages ?? 0);
                 if (status.connection === "connected") {
                     await loadConnectedWorkspace(status.activeGroupId);
                 }
@@ -111,6 +113,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
                 setConnection("connected");
                 setActiveGroupId(status.activeGroupId);
                 setExcel(status.excel);
+                setOrphanedImages(status.orphanedImages ?? 0);
                 void loadConnectedWorkspace(status.activeGroupId);
             }).catch(() => undefined);
         }, 1_500);
@@ -222,6 +225,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
             await api.syncExcel();
             const status = await api.getStatus();
             setExcel(status.excel);
+            setOrphanedImages(status.orphanedImages ?? 0);
         } catch (reason) {
             setError(errorMessage(reason));
         } finally {
@@ -267,7 +271,7 @@ export function App({ api }: { api: ProductMonitorApi }) {
                     {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(undefined)}>×</button></div>}
                     <section className="group-context">
                         <div className="group-context__identity"><span className="avatar">{group ? initials(group.name) : "ZG"}</span><span><strong>{group?.name ?? activeGroupId}</strong><small>{group?.adminIds.length ?? 0} quản trị viên · chỉ đọc</small></span></div>
-                        <div><span className="pipeline-pill">● Đang lắng nghe</span><span className="pending-pill">{excel.pending} thay đổi đang chờ</span></div>
+                        <div><span className="pipeline-pill">● Đang lắng nghe</span><span className="pending-pill">{excel.pending} thay đổi đang chờ</span>{orphanedImages > 0 && <span className="orphan-pill" title="Ảnh gửi mà chưa có bài mô tả nào nhận">⚠ {orphanedImages} ảnh chưa gán máy</span>}</div>
                     </section>
                     <ExcelSyncBanner {...excel} syncing={syncing} onSync={() => void syncExcel()} />
                     <section className="filters" aria-label="Bộ lọc sản phẩm">
