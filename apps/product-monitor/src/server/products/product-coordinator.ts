@@ -41,6 +41,15 @@ export const DEFAULT_REPOST_MIN_GAP_MS = 6 * 60 * 60 * 1000;
  */
 export const DEFAULT_LEADING_IMAGE_WINDOW_MS = 60 * 1000;
 
+/**
+ * How far back a new description looks for photos that arrived with nothing open. A
+ * longer reach than reclaiming is safe here: an orphan belongs to no machine yet, so
+ * the worst case is a photo the operator moves, not one taken off its rightful owner.
+ * Measured against the captured bursts, this covers most gaps while stopping well short
+ * of the multi-minute pauses that separate one posting session from the next.
+ */
+export const DEFAULT_ORPHAN_ADOPTION_WINDOW_MS = 3 * 60 * 1000;
+
 export type ProductCoordinatorOptions = {
     activeGroupId: string | (() => string | null);
     publisherId: string | (() => string | string[] | null);
@@ -49,6 +58,7 @@ export type ProductCoordinatorOptions = {
     idleDraftTimeoutMs?: number;
     repostMinimumGapMs?: number;
     leadingImageWindowMs?: number;
+    orphanAdoptionWindowMs?: number;
 };
 
 /** Either the products a manual move touched, or why it could not be made. */
@@ -100,6 +110,7 @@ export class ProductCoordinator {
                 );
                 this.repository.linkMessage(product.id, event.targetMessageIds ?? [event.messageId], "description", event.sentAt);
                 this.repository.enqueueExcelSync(product.id);
+                this.adoptOrphans(event, product);
                 return this.reclaimLeadingImages(previous, product, event.sentAt);
             });
         } catch (error) {
@@ -303,6 +314,40 @@ export class ProductCoordinator {
         this.repository.enqueueExcelSync(previous.id);
         this.repository.enqueueExcelSync(product.id);
         return this.repository.getProduct(product.id) ?? product;
+    }
+
+    /**
+     * Takes in photos that arrived before any product was open. The first machine of a
+     * posting session has no predecessor to hold its photos -- the previous description
+     * may be a day old and long outside the attachment window -- so they were recorded
+     * as orphans. Without this they stay orphaned forever and the machine shows none.
+     */
+    private adoptOrphans(event: NormalizedDescriptionEvent, product: ProductRecord): void {
+        const window = this.options.orphanAdoptionWindowMs ?? DEFAULT_ORPHAN_ADOPTION_WINDOW_MS;
+        const orphans = this.repository.listOrphanMediaBetween({
+            groupId: event.groupId,
+            senderId: event.senderId,
+            from: event.sentAt - window,
+            to: event.sentAt,
+        });
+        if (!orphans.length) return;
+
+        let sequence = this.repository.listMedia(product.id).length;
+        for (const orphan of orphans) {
+            sequence += 1;
+            this.repository.addMedia({
+                id: deterministicId("media", orphan.messageId),
+                productId: product.id,
+                sourceMessageId: orphan.messageId,
+                sourceUrl: orphan.sourceUrl,
+                sequence,
+                downloadStatus: "pending",
+                createdAt: orphan.sentAt,
+            });
+            this.repository.linkMessage(product.id, [orphan.messageId], "image", orphan.sentAt);
+            this.repository.deleteOrphanMedia(orphan.messageId);
+        }
+        this.repository.enqueueExcelSync(product.id);
     }
 
     /**

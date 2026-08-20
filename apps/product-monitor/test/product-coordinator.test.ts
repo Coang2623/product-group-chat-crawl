@@ -685,6 +685,70 @@ describe("ProductCoordinator", () => {
         }]);
     });
 
+    describe("adopting orphaned photos", () => {
+        const MINUTE = 60 * 1000;
+
+        it("gives the first machine of a session the photos that preceded it", () => {
+            // No product was open, so these could not attach to anything when they came.
+            coordinator.handleImage(imageEvent({ messageId: "o1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "o2", sentAt: 2_000 }));
+
+            const product = coordinator.handleDescription(
+                descriptionEvent({ messageId: "d1", sentAt: 2_000 + 107_000 }));
+
+            expect(repo.listMedia(product.id).map((media) => media.sourceMessageId)).toEqual(["o1", "o2"]);
+            expect(repo.listOrphanMedia()).toEqual([]);
+        });
+
+        it("numbers adopted photos from one and queues the Excel rewrite", () => {
+            coordinator.handleImage(imageEvent({ messageId: "o1", sentAt: 1_000 }));
+            coordinator.handleImage(imageEvent({ messageId: "o2", sentAt: 2_000 }));
+
+            const product = coordinator.handleDescription(
+                descriptionEvent({ messageId: "d1", sentAt: 60_000 }));
+
+            expect(repo.listMedia(product.id).map((media) => media.sequence)).toEqual([1, 2]);
+            expect(repo.listMedia(product.id).every((media) => media.downloadStatus === "pending")).toBe(true);
+            expect(repo.listPendingExcelJobs().map((job) => job.productId)).toContain(product.id);
+        });
+
+        it("leaves photos from an earlier posting session alone", () => {
+            coordinator.handleImage(imageEvent({ messageId: "old", sentAt: 1_000 }));
+
+            const product = coordinator.handleDescription(
+                descriptionEvent({ messageId: "d1", sentAt: 1_000 + 10 * MINUTE }));
+
+            expect(repo.listMedia(product.id)).toHaveLength(0);
+            expect(repo.listOrphanMedia().map((orphan) => orphan.messageId)).toEqual(["old"]);
+        });
+
+        it("never reaches forward for an orphan recorded after the description", () => {
+            // Adoption looks backwards only; a later orphan is the next machine's.
+            repo.recordOrphanMedia({
+                messageId: "later", groupId: "group-1", senderId: "admin-1",
+                sourceUrl: "https://example.test/later.jpg", sentAt: 5_000, createdAt: 5_000,
+            });
+
+            const product = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 1_000 }));
+
+            expect(repo.listMedia(product.id)).toHaveLength(0);
+            expect(repo.listOrphanMedia().map((orphan) => orphan.messageId)).toEqual(["later"]);
+        });
+
+        it("does not steal another publisher's orphans", () => {
+            coordinator.handleImage(imageEvent({ messageId: "o1", sentAt: 1_000 }));
+            repo.recordOrphanMedia({
+                messageId: "other", groupId: "group-1", senderId: "admin-2",
+                sourceUrl: "https://example.test/other.jpg", sentAt: 1_000, createdAt: 1_000,
+            });
+
+            const product = coordinator.handleDescription(descriptionEvent({ messageId: "d1", sentAt: 60_000 }));
+
+            expect(repo.listMedia(product.id).map((media) => media.sourceMessageId)).toEqual(["o1"]);
+            expect(repo.listOrphanMedia().map((orphan) => orphan.messageId)).toEqual(["other"]);
+        });
+    });
+
     it("attaches images to a needs_review description rather than discarding them", () => {
         const product = coordinator.handleDescription(
             descriptionEvent({ content: "máy đẹp inbox", sentAt: 100 }),

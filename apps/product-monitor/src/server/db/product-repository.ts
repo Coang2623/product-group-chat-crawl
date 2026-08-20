@@ -15,6 +15,13 @@ import type {
     SaleStatusInput,
 } from "../../shared/domain.js";
 
+export type OrphanWindowQuery = {
+    groupId: string;
+    senderId: string;
+    from: number;
+    to: number;
+};
+
 type ProductRow = Record<string, unknown>;
 type MediaRow = Record<string, unknown>;
 type JobRow = Record<string, unknown>;
@@ -73,6 +80,15 @@ const mediaFromRow = (row: MediaRow): ProductMedia => ({
     createdAt: Number(row.created_at),
 });
 
+const orphanFromRow = (row: ProductRow): OrphanMedia => ({
+    messageId: String(row.message_id),
+    groupId: String(row.group_id),
+    senderId: String(row.sender_id),
+    sourceUrl: optionalString(row.source_url),
+    sentAt: Number(row.sent_at),
+    createdAt: Number(row.created_at),
+});
+
 const jobFromRow = (row: JobRow): ExcelSyncJob => ({
     productId: String(row.product_id),
     operation: row.operation as ExcelSyncJob["operation"],
@@ -100,6 +116,8 @@ export interface ProductRepository {
     findRepostTarget(groupId: string, rawContent: string): ProductRecord | null;
     recordRepost(productId: string, postedAt: number): ProductRecord;
     recordOrphanMedia(input: NewOrphanMedia): void;
+    /** Photos from this publisher that landed with no product open, oldest first. */
+    listOrphanMediaBetween(input: OrphanWindowQuery): OrphanMedia[];
     listOrphanMedia(): OrphanMedia[];
     deleteOrphanMedia(messageId: string): void;
     getProduct(id: string): ProductRecord | null;
@@ -300,16 +318,18 @@ export class SqliteProductRepository implements ProductRepository {
         `).run({ ...input, sourceUrl: input.sourceUrl ?? null });
     }
 
+    listOrphanMediaBetween(input: OrphanWindowQuery): OrphanMedia[] {
+        return (this.database.prepare(`
+            SELECT * FROM orphan_media
+            WHERE group_id = ? AND sender_id = ? AND sent_at >= ? AND sent_at <= ?
+            ORDER BY sent_at, message_id
+        `).all(input.groupId, input.senderId, input.from, input.to) as ProductRow[])
+            .map(orphanFromRow);
+    }
+
     listOrphanMedia(): OrphanMedia[] {
         return (this.database.prepare("SELECT * FROM orphan_media ORDER BY sent_at").all() as ProductRow[])
-            .map((row) => ({
-                messageId: String(row.message_id),
-                groupId: String(row.group_id),
-                senderId: String(row.sender_id),
-                sourceUrl: optionalString(row.source_url),
-                sentAt: Number(row.sent_at),
-                createdAt: Number(row.created_at),
-            }));
+            .map(orphanFromRow);
     }
 
     deleteOrphanMedia(messageId: string): void {
