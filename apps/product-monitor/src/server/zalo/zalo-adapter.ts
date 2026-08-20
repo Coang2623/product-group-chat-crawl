@@ -380,6 +380,16 @@ export class ZaloAdapter implements ZaloProductAdapter {
         const content = asRecord(data.content);
         const href = stringValue(content?.href);
         if (messageType === "chat.photo" && href) {
+            // Photos and descriptions arrive in no fixed order, so timing alone cannot
+            // say which machine a photo belongs to. Report the attachment's structural
+            // fields (never the image itself) to find a grouping key that can.
+            this.report("photo_envelope", {
+                messageId,
+                keys: Object.keys(content ?? {}).sort(),
+                params: describePhotoParams(content?.params),
+                title: typeof content?.title === "string" ? content.title.slice(0, 40) : null,
+                childnumber: content?.childnumber ?? null,
+            });
             this.emit(this.imageHandlers, {
                 groupId,
                 senderId,
@@ -647,6 +657,21 @@ const describeError = (error: unknown): string => {
     if (!(error instanceof Error)) return typeof error;
     const code = (error as Error & { code?: unknown }).code;
     return `${error.name}${typeof code === "string" ? `(${code})` : ""}`;
+};
+
+/**
+ * Zalo packs album metadata into the attachment's `params` JSON. Reports its keys and
+ * any grouping-shaped values, which is what an album key would look like.
+ */
+const describePhotoParams = (value: unknown): unknown => {
+    const record = asRecordOrJson(value);
+    if (!record) return typeof value === "string" ? value.slice(0, 120) : null;
+    const interesting = Object.entries(record)
+        .filter(([key]) => /group|album|layout|batch|collection|order|index|total|count/iu.test(key));
+    return {
+        keys: Object.keys(record).sort(),
+        grouping: Object.fromEntries(interesting),
+    };
 };
 
 /** Names the reaction payload's shape without echoing any message text. */
