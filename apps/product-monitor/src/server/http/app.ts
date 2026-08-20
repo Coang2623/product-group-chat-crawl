@@ -236,6 +236,9 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
             connection: zalo.getConnectionState(),
             activeGroupId: repository.getSetting("activeGroupId"),
             activeProductId: repository.getActiveProduct()?.id ?? null,
+            // Photos no description ever claimed. Silent otherwise: they appear in no
+            // gallery, so without a count there is no sign they exist.
+            orphanedImages: repository.listOrphanMedia().length,
             excel: {
                 pending: jobs.length,
                 blocked: jobs.some((job) => job.status === "blocked"),

@@ -85,6 +85,7 @@ button:disabled { cursor: wait; opacity: .58; }
 .live-pill,
 .pipeline-pill,
 .pending-pill,
+.orphan-pill,
 .state-pill {
     display: inline-flex;
     align-items: center;
@@ -210,6 +211,7 @@ button:disabled { cursor: wait; opacity: .58; }
 }
 .pipeline-pill { padding: 6px 9px; color: #168654; background: #ebfaf3; }
 .pending-pill { margin-left: 7px; padding: 6px 9px; color: #8a6400; background: #fff7db; }
+.orphan-pill { margin-left: 7px; padding: 6px 9px; color: #8f2f2f; background: #ffecec; cursor: help; }
 
 .excel-banner {
     display: flex;
