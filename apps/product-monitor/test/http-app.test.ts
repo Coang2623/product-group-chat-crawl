@@ -1,5 +1,9 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import JSZip from "jszip";
 import type Database from "better-sqlite3";
 import { SqliteProductRepository } from "../src/server/db/product-repository.js";
 import { ProductCoordinator } from "../src/server/products/product-coordinator.js";
@@ -20,6 +24,7 @@ describe("product monitor HTTP app", () => {
     let beginQrLogin: ReturnType<typeof vi.fn>;
     let writeSpy: ReturnType<typeof vi.fn>;
     let app: ReturnType<typeof createHttpApp>;
+    const temporaryDirectories: string[] = [];
 
     beforeEach(() => {
         database = createTestDatabase();
@@ -57,7 +62,12 @@ describe("product monitor HTTP app", () => {
         app = createHttpApp({ repository, coordinator, excelWorker, zalo });
     });
 
-    afterEach(() => database.close());
+    afterEach(async () => {
+        database.close();
+        await Promise.all(temporaryDirectories.splice(0).map(
+            (directory) => rm(directory, { recursive: true, force: true }),
+        ));
+    });
 
     it("lists groups and selects exactly one active group", async () => {
         const groups = await request(app).get("/api/groups").expect(200);
@@ -180,5 +190,68 @@ describe("product monitor HTTP app", () => {
 
         expect(first).toHaveBeenCalledTimes(1);
         expect(second).toHaveBeenCalledTimes(2);
+    });
+
+    describe("bulk image download", () => {
+        const addDownloadedImage = async (productId: string, sequence: number) => {
+            const directory = await mkdtemp(join(tmpdir(), "zip-media-"));
+            temporaryDirectories.push(directory);
+            const file = join(directory, `00${sequence}.jpg`);
+            await writeFile(file, Buffer.from(`image-${sequence}`));
+            repository.addMedia({
+                id: `media-${sequence}`,
+                productId,
+                sourceMessageId: `image-${sequence}`,
+                sequence,
+                localPath: file,
+                checksum: `checksum-${sequence}`,
+                downloadStatus: "downloaded",
+                createdAt: sequence,
+            });
+            repository.updateProductMediaSummary(productId);
+        };
+
+        it("returns every downloaded image as one readable archive", async () => {
+            const product = coordinator.handleDescription(descriptionEvent({ groupId: "g1", messageId: "m1", sentAt: 100 }));
+            await addDownloadedImage(product.id, 1);
+            await addDownloadedImage(product.id, 2);
+
+            const response = await request(app)
+                .get(`/api/products/${product.id}/images.zip`)
+                .buffer(true)
+                .parse((res, callback) => {
+                    const chunks: Buffer[] = [];
+                    res.on("data", (chunk: Buffer) => chunks.push(chunk));
+                    res.on("end", () => callback(null, Buffer.concat(chunks)));
+                })
+                .expect(200)
+                .expect("Content-Type", "application/zip");
+
+            expect(response.headers["content-disposition"]).toContain(".zip");
+            const archive = await JSZip.loadAsync(response.body);
+            expect(Object.keys(archive.files).sort()).toEqual(["001.jpg", "002.jpg"]);
+            await expect(archive.file("001.jpg")!.async("string")).resolves.toBe("image-1");
+            await expect(archive.file("002.jpg")!.async("string")).resolves.toBe("image-2");
+        });
+
+        it("reduces a Vietnamese product name to an ASCII filename", async () => {
+            const product = coordinator.handleDescription(descriptionEvent({ groupId: "g1", messageId: "m1", sentAt: 100 }));
+            await addDownloadedImage(product.id, 1);
+
+            const response = await request(app).get(`/api/products/${product.id}/images.zip`).expect(200);
+
+            // A quote or separator here would break the Content-Disposition header.
+            expect(response.headers["content-disposition"]).toMatch(/filename="[A-Za-z0-9-]+\.zip"/);
+        });
+
+        it("reports 404 when the product has no downloaded image", async () => {
+            const product = coordinator.handleDescription(descriptionEvent({ groupId: "g1", messageId: "m1", sentAt: 100 }));
+
+            await request(app).get(`/api/products/${product.id}/images.zip`).expect(404);
+        });
+
+        it("reports 404 for an unknown product", async () => {
+            await request(app).get("/api/products/does-not-exist/images.zip").expect(404);
+        });
     });
 });

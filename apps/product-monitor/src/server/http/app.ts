@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { extname, resolve } from "node:path";
 import express, {
     type NextFunction,
     type Request,
@@ -9,6 +10,7 @@ import { z } from "zod";
 import type { ProductMonitorEvent } from "../../shared/api.js";
 import type { ProductRepository } from "../db/product-repository.js";
 import type { ProductCoordinator } from "../products/product-coordinator.js";
+import { buildZip } from "../media/zip.js";
 import type { ZaloProductAdapter } from "../zalo/zalo-adapter.js";
 
 type ExcelWorker = {
@@ -121,6 +123,38 @@ export function createHttpApp(dependencies: HttpAppDependencies): express.Expres
             next(error);
         }
     });
+
+    app.get("/api/products/:id/images.zip", asyncRoute(async (request, response) => {
+        const { id } = parse(productParams, request.params);
+        const product = repository.getProduct(id);
+        if (!product) throw new ApiError(404, "product_not_found", "Không tìm thấy sản phẩm");
+
+        const downloaded = repository.listMedia(product.id)
+            .filter((media) => media.localPath && media.downloadStatus === "downloaded");
+        if (!downloaded.length) {
+            throw new ApiError(404, "media_not_found", "Sản phẩm chưa có ảnh nào tải xong");
+        }
+
+        const entries = [];
+        for (const media of downloaded) {
+            // One unreadable file must not fail the whole download.
+            const bytes = await readFile(resolve(media.localPath!)).catch(() => null);
+            if (bytes) {
+                entries.push({
+                    name: `${String(media.sequence).padStart(3, "0")}${extname(media.localPath!) || ".jpg"}`,
+                    bytes,
+                });
+            }
+        }
+        if (!entries.length) throw new ApiError(404, "media_not_found", "Không đọc được ảnh nào");
+
+        response.setHeader("Content-Type", "application/zip");
+        response.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${zipFilename(product)}"`,
+        );
+        response.send(buildZip(entries));
+    }));
 
     app.get("/api/products/:id", (request, response, next) => {
         try {
@@ -259,6 +293,21 @@ class ApiError extends Error {
         super(message);
     }
 }
+
+/**
+ * Product names come from chat text, so the filename is reduced to ASCII word
+ * characters: quotes or path separators would break the Content-Disposition header.
+ */
+const zipFilename = (product: { productName?: string; id: string }): string => {
+    const slug = (product.productName ?? "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/gu, "")
+        .replace(/đ/giu, "d")
+        .replace(/[^A-Za-z0-9]+/gu, "-")
+        .replace(/^-+|-+$/gu, "")
+        .slice(0, 60);
+    return `${slug || product.id.slice(0, 20)}-anh.zip`;
+};
 
 const normalizeError = (error: unknown): ApiError => {
     if (error instanceof ApiError) return error;

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { ProductDetail } from "../api.js";
+import { commission, formatDong, sellingPrice, specsForCopywriting } from "../selling.js";
 import { ImageLightbox } from "./ImageLightbox.js";
 
 type ProductDetailPanelProps = {
     detail: ProductDetail;
     completing: boolean;
+    markupPercent: number;
     onClose(): void;
     onComplete(): void;
 };
@@ -12,6 +14,7 @@ type ProductDetailPanelProps = {
 export function ProductDetailPanel({
     detail,
     completing,
+    markupPercent,
     onClose,
     onComplete,
 }: ProductDetailPanelProps) {
@@ -62,6 +65,27 @@ export function ProductDetailPanel({
                         onClose={() => setZoomedIndex(null)}
                     />
                 )}
+                <section className="selling-box">
+                    <div className="section-heading"><span>BÁN HÀNG</span><b>+{markupPercent}%</b></div>
+                    <dl className="mapped-fields">
+                        <div><dt>Giá thu về</dt><dd>{formatDong(product.price)}</dd></div>
+                        <div><dt>Giá bán</dt><dd className="selling-box__price">{formatDong(sellingPrice(product.price, markupPercent))}</dd></div>
+                        <div><dt>Hoa hồng</dt><dd>{formatDong(commission(product.price, markupPercent))}</dd></div>
+                    </dl>
+                    <div className="selling-box__actions">
+                        <CopyButton
+                            label="Copy cấu hình cho AI"
+                            copiedLabel="Đã copy cấu hình"
+                            text={() => specsForCopywriting(product, markupPercent)}
+                        />
+                        <a
+                            className="button button--secondary"
+                            href={`/api/products/${encodeURIComponent(product.id)}/images.zip`}
+                        >
+                            Tải {downloaded.length} ảnh
+                        </a>
+                    </div>
+                </section>
                 <section>
                     <div className="section-heading"><span>DỮ LIỆU ĐÃ MAP</span><b>{product.status === "needs_review" ? "CẦN KIỂM TRA" : "PARSER OK"}</b></div>
                     <dl className="mapped-fields">
@@ -103,6 +127,56 @@ export function ProductDetailPanel({
         </aside>
     );
 }
+
+function CopyButton({ label, copiedLabel, text }: {
+    label: string;
+    copiedLabel: string;
+    text(): string;
+}) {
+    const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        if (!copied) return;
+        const timer = setTimeout(() => setCopied(false), 2_000);
+        return () => clearTimeout(timer);
+    }, [copied]);
+
+    return (
+        <button
+            className="button button--primary"
+            onClick={() => void copyText(text()).then(setCopied)}
+        >
+            {copied ? copiedLabel : label}
+        </button>
+    );
+}
+
+/** navigator.clipboard needs a secure context, which plain http://127.0.0.1 may not be. */
+const copyText = async (value: string): Promise<boolean> => {
+    try {
+        await navigator.clipboard.writeText(value);
+        return true;
+    } catch {
+        return copyViaTextarea(value);
+    }
+};
+
+const copyViaTextarea = (value: string): boolean => {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    try {
+        return document.execCommand("copy");
+    } catch {
+        return false;
+    } finally {
+        textarea.remove();
+    }
+};
 
 const statusLabel = (status: string) => ({
     receiving_images: "Đang nhận ảnh · realtime",

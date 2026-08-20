@@ -12,6 +12,7 @@ import { GroupPicker } from "./components/GroupPicker.js";
 import { ProductDetailPanel } from "./components/ProductDetailPanel.js";
 import { ProductTable } from "./components/ProductTable.js";
 import { QrLogin } from "./components/QrLogin.js";
+import { isValidMarkup, loadMarkupPercent, saveMarkupPercent } from "./selling.js";
 
 type Filter = "all" | "receiving" | "review" | "unsynced";
 
@@ -28,13 +29,17 @@ export function App({ api }: { api: ProductMonitorApi }) {
     const [syncing, setSyncing] = useState(false);
     const [selected, setSelected] = useState<ProductDetail>();
     const [completing, setCompleting] = useState(false);
+    const [markupPercent, setMarkupPercent] = useState(
+        () => loadMarkupPercent(typeof localStorage === "undefined" ? undefined : localStorage),
+    );
     const [filter, setFilter] = useState<Filter>("all");
     const [search, setSearch] = useState("");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
     const [brand, setBrand] = useState("");
     const [ram, setRam] = useState("");
-    const [sale, setSale] = useState<"all" | "available" | "closed">("all");
+    // Defaults to stock a collaborator can still sell; sold machines are history.
+    const [sale, setSale] = useState<"all" | "available" | "closed">("available");
 
     const loadProducts = async () => {
         const records = await api.getProducts();
@@ -258,11 +263,32 @@ export function App({ api }: { api: ProductMonitorApi }) {
                                 <option value="available">Còn hàng</option>
                                 <option value="closed">Đã chốt</option>
                             </select>
+                            <label className="markup-field">
+                                Hoa hồng
+                                <input
+                                    aria-label="Phần trăm hoa hồng"
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    value={markupPercent}
+                                    onChange={(event) => {
+                                        const next = Number(event.target.value);
+                                        if (!isValidMarkup(next)) return;
+                                        setMarkupPercent(next);
+                                        saveMarkupPercent(
+                                            typeof localStorage === "undefined" ? undefined : localStorage,
+                                            next,
+                                        );
+                                    }}
+                                />
+                                %
+                            </label>
                         </div>
                     </section>
                     <div className="product-layout">
-                        <ProductTable products={visibleProducts} selectedId={selected?.product.id} onSelect={(item) => void openDetail(item)} />
-                        {selected && <ProductDetailPanel detail={selected} completing={completing} onClose={() => setSelected(undefined)} onComplete={() => void completeSelected()} />}
+                        <ProductTable products={visibleProducts} selectedId={selected?.product.id} markupPercent={markupPercent} onSelect={(item) => void openDetail(item)} />
+                        {selected && <ProductDetailPanel detail={selected} completing={completing} markupPercent={markupPercent} onClose={() => setSelected(undefined)} onComplete={() => void completeSelected()} />}
                     </div>
                 </div>
             </main>

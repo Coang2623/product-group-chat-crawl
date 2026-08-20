@@ -1,12 +1,14 @@
 import type { ProductRecord } from "../../shared/domain.js";
+import { formatDong, sellingPrice } from "../selling.js";
 
 type ProductTableProps = {
     products: ProductRecord[];
     selectedId?: string;
+    markupPercent: number;
     onSelect(product: ProductRecord): void;
 };
 
-export function ProductTable({ products, selectedId, onSelect }: ProductTableProps) {
+export function ProductTable({ products, selectedId, markupPercent, onSelect }: ProductTableProps) {
     return (
         <section className="table-card">
             <header className="table-card__header">
@@ -21,7 +23,8 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
                             <th>Thời gian</th>
                             <th>Sản phẩm</th>
                             <th>Cấu hình</th>
-                            <th>Giá</th>
+                            <th>Giá thu về</th>
+                            <th>Giá bán</th>
                             <th>Ảnh / Tym</th>
                             <th>Bán hàng</th>
                             <th>Xử lý</th>
@@ -40,7 +43,8 @@ export function ProductTable({ products, selectedId, onSelect }: ProductTablePro
                                 <td><time>{formatTime(product.postedAt)}</time><small>{formatDate(product.postedAt)}</small></td>
                                 <td><strong>{product.productName ?? "Chưa nhận diện"}</strong><small>{shortId(product.descriptionMessageId)}</small></td>
                                 <td>{[product.cpu, product.ram, product.storage].filter(Boolean).join(" · ") || "Giữ nội dung gốc"}</td>
-                                <td className="price">{formatPrice(product.price)}</td>
+                                <td className="price price--base">{formatPrice(product.price)}</td>
+                                <td className="price price--selling">{formatDong(sellingPrice(product.price, markupPercent))}</td>
                                 <td>{product.imageCount} ảnh · {product.heartCount} tym</td>
                                 <td><SaleBadge status={product.saleStatus} /></td>
                                 <td><StatusBadge status={product.status} /></td>

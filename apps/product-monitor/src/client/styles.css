@@ -432,6 +432,29 @@ td small { margin-top: 3px; color: #8c98aa; font-size: 8px; }
 .detail-panel code { display: block; overflow-wrap: anywhere; color: #56657c; font-size: 9px; }
 .detail-panel > footer { border-top: 1px solid #e7ecf3; }
 
+.markup-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    border: 1px solid #d8e0ec;
+    border-radius: 6px;
+    color: #56657c;
+    background: #fff;
+    font-size: 10px;
+    white-space: nowrap;
+}
+.markup-field input { width: 46px; padding: 6px 0; border: 0; color: #17324f; font-weight: 700; text-align: right; }
+.markup-field input:focus { outline: none; }
+
+.price--base { color: #7b8798; }
+.price--selling { color: #0f7b46; font-weight: 750; }
+
+.selling-box { border-left: 2px solid #16a463; padding-left: 10px !important; }
+.selling-box__price { color: #0f7b46 !important; font-size: 12px !important; }
+.selling-box__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.selling-box__actions .button { flex: 1 1 auto; text-align: center; }
+
 .auth-notice {
     padding: 10px 12px;
     border-left: 3px solid #d99311;
