@@ -33,6 +33,14 @@ export const DEFAULT_IDLE_DRAFT_TIMEOUT_MS = DEFAULT_IMAGE_ATTACHMENT_WINDOW_MS;
  */
 export const DEFAULT_REPOST_MIN_GAP_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * Publishers sometimes send a machine's photos and only then its description. Those
+ * images land on whichever product was open, so a description reclaims images posted
+ * in the moments just before it. Kept short: a real gap means the images belong to
+ * the previous machine, which is the common ordering.
+ */
+export const DEFAULT_LEADING_IMAGE_WINDOW_MS = 60 * 1000;
+
 export type ProductCoordinatorOptions = {
     activeGroupId: string | (() => string | null);
     publisherId: string | (() => string | string[] | null);
@@ -40,6 +48,7 @@ export type ProductCoordinatorOptions = {
     imageAttachmentWindowMs?: number;
     idleDraftTimeoutMs?: number;
     repostMinimumGapMs?: number;
+    leadingImageWindowMs?: number;
 };
 
 export class ProductCoordinator {
@@ -60,6 +69,7 @@ export class ProductCoordinator {
 
         try {
             return this.repository.runInTransaction(() => {
+                const previous = this.repository.getActiveProduct();
                 const completed = this.repository.completeActiveProduct(event.sentAt);
                 if (completed) this.repository.enqueueExcelSync(completed.id);
 
@@ -84,7 +94,7 @@ export class ProductCoordinator {
                 );
                 this.repository.linkMessage(product.id, event.targetMessageIds ?? [event.messageId], "description", event.sentAt);
                 this.repository.enqueueExcelSync(product.id);
-                return product;
+                return this.reclaimLeadingImages(previous, product, event.sentAt);
             });
         } catch (error) {
             if (!isDescriptionMessageConflict(error)) throw error;
@@ -224,6 +234,33 @@ export class ProductCoordinator {
      * configured publisher. Without the fallback every burst-posted product loses its
      * photos, because the next description closes the draft within seconds.
      */
+    /**
+     * Moves images that arrived immediately before this description onto it. Publishers
+     * sometimes send a machine's photos first, and those images would otherwise stay on
+     * the previous machine, leaving this one with none and that one with a double set.
+     */
+    private reclaimLeadingImages(
+        previous: ProductRecord | null,
+        product: ProductRecord,
+        describedAt: number,
+    ): ProductRecord {
+        if (!previous || previous.id === product.id) return product;
+        const window = this.options.leadingImageWindowMs ?? DEFAULT_LEADING_IMAGE_WINDOW_MS;
+        const all = this.repository.listMedia(previous.id);
+        const leading = all.filter((media) =>
+            media.createdAt >= describedAt - window && media.createdAt <= describedAt);
+        // Everything the previous machine has arrived in this window, so there is no
+        // evidence these photos are not simply its own; leave them where they are.
+        if (!leading.length || leading.length >= all.length) return product;
+
+        this.repository.reassignMedia(leading.map((media) => media.id), product.id);
+        this.repository.updateProductMediaSummary(previous.id);
+        this.repository.updateProductMediaSummary(product.id);
+        this.repository.enqueueExcelSync(previous.id);
+        this.repository.enqueueExcelSync(product.id);
+        return this.repository.getProduct(product.id) ?? product;
+    }
+
     /** The same machine re-listed later, as opposed to a second unit posted right now. */
     private findRepost(event: NormalizedDescriptionEvent): ProductRecord | null {
         const minimumGap = this.options.repostMinimumGapMs ?? DEFAULT_REPOST_MIN_GAP_MS;
