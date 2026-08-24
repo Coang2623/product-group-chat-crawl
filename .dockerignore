@@ -1,0 +1,36 @@
+# Build context hygiene: node_modules holds Windows-compiled native binaries
+# that must not shadow the Linux ones installed in the image.
+node_modules
+**/node_modules
+
+# The app's own build output is produced inside the image. The library's dist/
+# at the repository root is committed and IS needed, so it is not excluded.
+apps/product-monitor/dist
+
+# Runtime state. The database and the Zalo session belong in the mounted
+# volume, never baked into an image.
+data
+**/data
+*.sqlite
+*.sqlite.backup*
+*.xlsx
+*.xlsx.bak
+zalo-credentials.json
+qr.png
+
+.git
+.github
+.husky
+.worktrees
+design-previews
+docs
+test
+**/test
+*.md
+*.log
+.gitignore
+.prettierrc
+eslint.config.js
+deploy.sh
+commit-push.sh
+zalo-tool.pen

@@ -28,6 +28,41 @@ Biến môi trường tùy chọn:
 - `PRODUCT_MONITOR_HOST` — mặc định `127.0.0.1`.
 - `PRODUCT_MONITOR_PORT` — mặc định `4173`.
 
+## Chạy bằng Docker
+
+Không cần cài Node hay build gì trên máy. Chạy ở thư mục gốc repository:
+
+```powershell
+docker compose up -d --build
+```
+
+Mở `http://127.0.0.1:4173`, quét QR và chọn nhóm như bình thường.
+
+Dữ liệu nằm trong `./docker-data` trên máy host — database, ảnh, workbook và phiên
+đăng nhập Zalo. Container có thể xoá và dựng lại thoải mái, thư mục này giữ nguyên.
+
+```powershell
+docker compose logs -f          # xem log
+docker compose restart          # khởi động lại
+docker compose down             # dừng (dữ liệu vẫn còn)
+```
+
+Cổng chỉ mở trên `127.0.0.1`: ứng dụng giữ phiên Zalo đã đăng nhập và không có lớp
+đăng nhập riêng, nên không được để máy khác trong mạng truy cập được.
+
+Đổi cổng thì sửa `ports` trong `docker-compose.yml`, không sửa `PRODUCT_MONITOR_PORT`
+(cổng bên trong container cố định là 4173).
+
+Các script trong `scripts/` viết bằng TypeScript và cần `tsx` — thứ đã bị loại khỏi
+image production. Muốn chạy chúng thì trỏ thẳng vào thư mục dữ liệu của Docker từ máy
+host, sau khi đã dừng container để tránh hai tiến trình cùng ghi SQLite:
+
+```powershell
+docker compose stop
+npx tsx apps/product-monitor/scripts/adopt-orphans.ts --db=docker-data/products.sqlite
+docker compose start
+```
+
 ## Chạy khi phát triển
 
 ```powershell

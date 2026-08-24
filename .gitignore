@@ -166,3 +166,6 @@ package-lock.json
 # .github
 # No need to ignore .git (Git ignores it automatically)
 # .git
+
+# Docker bind mount: SQLite, photos, workbook and the Zalo session.
+docker-data/
