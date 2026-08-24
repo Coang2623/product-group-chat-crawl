@@ -38,14 +38,43 @@ docker compose up -d --build
 
 Mở `http://127.0.0.1:4173`, quét QR và chọn nhóm như bình thường.
 
-Dữ liệu nằm trong `./docker-data` trên máy host — database, ảnh, workbook và phiên
-đăng nhập Zalo. Container có thể xoá và dựng lại thoải mái, thư mục này giữ nguyên.
+Dữ liệu nằm trong Docker volume `product-monitor-data` — database, ảnh, workbook và
+phiên đăng nhập Zalo. Container xoá dựng lại thoải mái, volume giữ nguyên; chỉ
+`docker compose down -v` mới xoá dữ liệu.
+
+Dùng volume thay vì mount thẳng thư mục trên máy vì ứng dụng chạy bằng user `node`
+(uid 1000): thư mục host thường thuộc quyền người khác, và app sẽ chết ngay với
+`SQLITE_CANTOPEN` trước cả khi server kịp khởi động.
 
 ```powershell
 docker compose logs -f          # xem log
 docker compose restart          # khởi động lại
 docker compose down             # dừng (dữ liệu vẫn còn)
 ```
+
+Chép dữ liệu ra để sao lưu:
+
+```powershell
+docker compose cp product-monitor:/data ./backup
+```
+
+### Chuyển dữ liệu cũ sang Docker
+
+Đường dẫn ảnh được lưu **tuyệt đối** trong database, nên bản chạy trên Windows ghi
+`D:\...\data\media\...` — Linux trong container không hiểu, và mọi sản phẩm sẽ mất
+ảnh. Phải đổi đường dẫn trước khi chép vào:
+
+```powershell
+docker compose stop
+copy data\products.sqlite migrate.sqlite
+npx tsx apps/product-monitor/scripts/rebase-media-paths.ts --db=migrate.sqlite --to=/data --apply
+docker compose cp migrate.sqlite product-monitor:/data/products.sqlite
+docker compose cp data\media product-monitor:/data/media
+docker compose cp data\zalo-credentials.json product-monitor:/data/zalo-credentials.json
+docker compose start
+```
+
+Bỏ `--apply` để xem trước sẽ đổi những gì mà chưa ghi.
 
 Cổng chỉ mở trên `127.0.0.1`: ứng dụng giữ phiên Zalo đã đăng nhập và không có lớp
 đăng nhập riêng, nên không được để máy khác trong mạng truy cập được.
@@ -54,12 +83,14 @@ Cổng chỉ mở trên `127.0.0.1`: ứng dụng giữ phiên Zalo đã đăng 
 (cổng bên trong container cố định là 4173).
 
 Các script trong `scripts/` viết bằng TypeScript và cần `tsx` — thứ đã bị loại khỏi
-image production. Muốn chạy chúng thì trỏ thẳng vào thư mục dữ liệu của Docker từ máy
-host, sau khi đã dừng container để tránh hai tiến trình cùng ghi SQLite:
+image production. Chép database ra, chạy script, rồi chép ngược vào. Dừng container
+trước để tránh hai tiến trình cùng ghi SQLite:
 
 ```powershell
 docker compose stop
-npx tsx apps/product-monitor/scripts/adopt-orphans.ts --db=docker-data/products.sqlite
+docker compose cp product-monitor:/data/products.sqlite ./products.sqlite
+npx tsx apps/product-monitor/scripts/adopt-orphans.ts --db=products.sqlite --apply
+docker compose cp ./products.sqlite product-monitor:/data/products.sqlite
 docker compose start
 ```
 

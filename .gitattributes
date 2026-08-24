@@ -1,0 +1,4 @@
+# The container runs this with /bin/sh; a CRLF checkout on Windows makes the
+# shebang unparseable and the image fails to start.
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
