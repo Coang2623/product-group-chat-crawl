@@ -1,0 +1,24 @@
+services:
+  product-monitor:
+    build: .
+    image: zalo-product-monitor
+    # The Zalo listener reconnects on its own, but a crash or a host reboot
+    # should not need a manual start -- the tool is only useful while it is
+    # watching the group.
+    restart: unless-stopped
+    ports:
+      # Bound to loopback: this holds a logged-in Zalo session and has no
+      # authentication of its own, so it must not be reachable from the network.
+      - "127.0.0.1:4173:4173"
+    volumes:
+      # Database, photos, workbook and the Zalo session. Everything worth
+      # keeping lives here; the container itself is disposable.
+      - ./docker-data:/data
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4173/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
