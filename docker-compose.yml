@@ -13,7 +13,13 @@ services:
     volumes:
       # Database, photos, workbook and the Zalo session. Everything worth
       # keeping lives here; the container itself is disposable.
-      - ./docker-data:/data
+      #
+      # A named volume rather than a bind mount: Docker seeds a named volume
+      # with the image's ownership, while a bind mount keeps the host
+      # directory's. The app runs as uid 1000, so a root-owned bind mount fails
+      # with SQLITE_CANTOPEN before the server ever starts.
+      # Copy files in and out with `docker compose cp` (see README).
+      - product-monitor-data:/data
     environment:
       TZ: Asia/Ho_Chi_Minh
     healthcheck:
@@ -22,3 +28,6 @@ services:
       timeout: 5s
       start_period: 20s
       retries: 3
+
+volumes:
+  product-monitor-data:
